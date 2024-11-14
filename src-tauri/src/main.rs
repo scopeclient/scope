@@ -2,5 +2,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    scope_lib::run()
+    tauri::Builder::default()
+        .plugin(tauri_plugin_store::Builder::default().build())
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+
+    scope_lib::run();
 }
