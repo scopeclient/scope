@@ -4,4 +4,4 @@ members = [
   "src/ui"
 ]
 
-[wrokspace.dependencies]
+[workspace.dependencies]
