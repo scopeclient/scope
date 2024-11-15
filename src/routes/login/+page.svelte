@@ -20,7 +20,7 @@
   });
 </script>
 
-<main class="w-screen h-screen flex">
+<main class="w-full h-full flex">
   <div class="flex flex-col items-center m-auto">
     <input placeholder="auth token" bind:value={tokenInput} type="text" />
     <button
