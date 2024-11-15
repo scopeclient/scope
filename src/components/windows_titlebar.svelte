@@ -120,7 +120,6 @@
   }
 
   .actionItems {
-    gap: 1px;
     position: absolute;
     right: 0;
     top: 10px;
