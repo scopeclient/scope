@@ -119,12 +119,6 @@
     flex-direction: row;
   }
 
-  .actionItems {
-    position: absolute;
-    right: 0;
-    top: 10px;
-  }
-
   main {
     justify-content: space-between;
     min-height: 30px;
