@@ -1,0 +1,16 @@
+[package]
+name = "scope"
+version = "0.1.0"
+edition = "2021"
+authors = [
+  "Rose Kodsi-Hall <rose@hall.ly>"
+  # Add yourself here if you contribute!
+]
+description = "discord client for power users"
+readme = "README.md"
+homepage = "https://www.scopeclient.com/"
+repository = "https://github.com/scopeclient/scope"
+keywords = ["discord", "scope", "reticle"]
+
+[dependencies]
+gpui = { git = "https://github.com/zed-industries/zed.git", version = "0.1.0" }

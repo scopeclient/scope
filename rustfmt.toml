@@ -1,0 +1,4 @@
+tab_spaces = 2
+max_width = 150
+chain_width = 150
+imports_layout = "Horizontal"
