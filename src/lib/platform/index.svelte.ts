@@ -16,7 +16,14 @@ export let focused = $state({ value: false });
 CURRENT_WINDOW.isDecorated().then(d => decorated.value = d);
 export let decorated = $state({ value: false });
 
-CURRENT_WINDOW.onResized(async _ => {
+let old: any | undefined = undefined;
+
+CURRENT_WINDOW.onResized(async evt => {
+  if (evt.payload.height == old?.height && evt.payload.width == old?.width && evt.payload.type == old?.type)
+    return;
+
+  old = { height: evt.payload.height, width: evt.payload.width, type: evt.payload.type };
+
   maximized.value = await CURRENT_WINDOW.isMaximized();
 
   console.log("Maximized", maximized.value);
