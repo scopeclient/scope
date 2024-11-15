@@ -1,7 +1,11 @@
 [workspace]
 resolver = "2"
-members = [
-  "src/ui"
-]
+members = ["src/ui"]
 
 [workspace.dependencies]
+
+[workspace.metadata.crane]
+name = "scope"
+
+[workspace.package]
+version = "0.1.0"
