@@ -1,7 +1,12 @@
 <script lang="ts">
-  import { CURRENT_WINDOW, dragRegion, focused, maximized } from "$lib/platform/index.svelte";
+  import {
+    CURRENT_WINDOW,
+    dragRegion,
+    focused,
+    maximized,
+  } from "$lib/platform/index.svelte";
   import { theme } from "$lib/theme";
-  import { version } from "@tauri-apps/plugin-os"
+  import { version } from "@tauri-apps/plugin-os";
   import type { Snippet } from "svelte";
 
   const [VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH] = version().split(".");
@@ -12,32 +17,43 @@
     close: "\u{e8bb}",
     minimize: "\u{e921}",
     maximize: "\u{e922}",
-    restore: "\u{e923}"
+    restore: "\u{e923}",
   };
 
   interface Props {
-    contents: Snippet,
+    contents: Snippet;
   }
 
   const { contents }: Props = $props();
 </script>
 
 {#snippet button(kind: "close" | "maximize" | "restore" | "minimize")}
-  <button style="
+  <button
+    style="
     font-family: {FONT};
     --icon: {theme(`titlebar-windows-${kind}-icon`)};
     --bg-hover: {theme(`titlebar-windows-${kind}-hover-background`)};
     --icon-hover: {theme(`titlebar-windows-${kind}-hover-icon`)};
     --bg-active: {theme(`titlebar-windows-${kind}-active-background`)};
     --icon-active: {theme(`titlebar-windows-${kind}-active-icon`)};
-    --hover-transition-speed: {theme(`titlebar-windows-${kind}-hover-transition-speed`)}
+    --hover-transition-speed: {theme(
+      `titlebar-windows-${kind}-hover-transition-speed`
+    )}
   "
     onclick={() => {
       switch (kind) {
-        case "close": CURRENT_WINDOW.close(); break;
-        case "restore": CURRENT_WINDOW.unmaximize(); break;
-        case "maximize": CURRENT_WINDOW.maximize(); break;
-        case "minimize": CURRENT_WINDOW.minimize(); break;
+        case "close":
+          CURRENT_WINDOW.close();
+          break;
+        case "restore":
+          CURRENT_WINDOW.unmaximize();
+          break;
+        case "maximize":
+          CURRENT_WINDOW.maximize();
+          break;
+        case "minimize":
+          CURRENT_WINDOW.minimize();
+          break;
       }
     }}
   >
@@ -93,17 +109,21 @@
     font-size: 10px;
   }
 
-  p { 
+  p {
     margin: 0;
   }
 
-  main, .actionItems {
+  main,
+  .actionItems {
     display: flex;
     flex-direction: row;
   }
 
   .actionItems {
     gap: 1px;
+    position: absolute;
+    right: 0;
+    top: 10px;
   }
 
   main {
