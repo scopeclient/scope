@@ -116,7 +116,7 @@
 
 {#snippet TitlebarContents()}
   <div use:dragRegion class="titlebarContents">
-    <button class="collapse" onclick={() => {
+    <button class="collapse-button" onclick={() => {
       if (sidebar_width_px < sidebar_min_width) {
         desired_sidebar_width = previous_user_set_sidebar_width;
       } else {
@@ -221,7 +221,7 @@
     background-color: #0284c7;
   }
 
-  .collapse {
+  .collapse-button {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -233,7 +233,7 @@
     transition: background-color var(--theme-titlebar-windows-minimize-hover-transition-speed) ease-out;
   }
 
-  .collapse:hover {
+  .collapse-button:hover {
     background-color: var(--theme-titlebar-windows-minimize-hover-background);
   }
 
