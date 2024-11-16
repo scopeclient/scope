@@ -43,10 +43,10 @@ async fn main() {
 
   let app_state = Arc::new(AppState {});
 
-    let token = dotenv::var("DISCORD_TOKEN").expect("Must provide DISCORD_TOKEN in .env");
-    let demo_channel_id = dotenv::var("DEMO_CHANNEL_ID").expect("Must provide DEMO_CHANNEL_ID in .env");
+  let token = dotenv::var("DISCORD_TOKEN").expect("Must provide DISCORD_TOKEN in .env");
+  let demo_channel_id = dotenv::var("DEMO_CHANNEL_ID").expect("Must provide DEMO_CHANNEL_ID in .env");
 
-  let mut client = DiscordClient::new(token);
+  let mut client = DiscordClient::new(token).await;
 
   let channel = DiscordChannel::new(
     client.clone(),

@@ -1,13 +1,8 @@
 use gpui::{div, IntoElement, ListAlignment, ListState, ParentElement, Pixels};
-use scope_backend_discord::{
-  message::{
-    author::{DiscordMessageAuthor, DisplayName},
-    content::DiscordMessageContent,
-    DiscordMessage,
-  },
-  snowflake::Snowflake,
-};
+
 use scope_chat::message::Message;
+
+use super::message::message;
 
 #[derive(Clone)]
 pub struct MessageList<M: Message + 'static> {
