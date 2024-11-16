@@ -46,8 +46,8 @@ impl AssetSource for Assets {
 async fn main() {
   env_logger::init();
 
-  let token = dotenv::var("DISCORD_TOKEN").unwrap_with_message("Must provide DISCORD_TOKEN in .env");
-  let demo_channel_id = dotenv::var("DEMO_CHANNEL_ID").unwrap_with_message("Must provide DEMO_CHANNEL_ID in .env");
+  let token = dotenv::var("DISCORD_TOKEN").expect("Must provide DISCORD_TOKEN in .env");
+  let demo_channel_id = dotenv::var("DEMO_CHANNEL_ID").expect("Must provide DEMO_CHANNEL_ID in .env");
 
   let mut client = DiscordClient::new(token);
 
