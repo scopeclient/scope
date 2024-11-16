@@ -57,10 +57,11 @@ async fn main() {
     env_logger::init();
 
     let token = dotenv::var("DISCORD_TOKEN").unwrap();
+    let demo_channel_id = dotenv::var("DEMO_CHANNEL_ID").unwrap();
 
     let mut client = DiscordClient::new(token);
 
-    let mut channel = DiscordChannel::new(&mut client, Snowflake { content: 1307138748303278120 }).await;
+    let mut channel = DiscordChannel::new(&mut client, Snowflake { content: demo_channel_id.parse().unwrap() }).await;
 
     App::new()
         .with_assets(Assets {
