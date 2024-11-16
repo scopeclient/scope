@@ -1,11 +1,25 @@
 <div align="center">
-<img src="./.github/scope-round-200.png" />
-<h1>Scope</h1>
-<h2>discord client for power users</h2>
-<a href="https://www.scopeclient.com/">scopeclient.com</a>
+
+<img width="128px" src="./.github/scope-round-200.png" />
+<h1><b>Scope</b></h1>
+
+The discord client for power users.
+<br>
+<a href="https://www.scopeclient.com/"><strong>scopeclient.com »</strong></a>
+
+<table>
+  <tbody>
+    <tr>
+      <td>No Release Downloads Yet</td>
+    </tr>
+  </tbody>
+</table>
+
+<sup>Nightly releases can be found <a href="https://github.com/scopeclient/scope/actions/workflows/build.yml">here</a> </sup>
+
 </div>
 
-##### Scope is in its earliest stages of development. This readme will be fleshed out as the project progresses.
+###### Scope is in its earliest stages of development. This readme will be fleshed out as the project progresses
 
 ## Building
 
@@ -20,7 +34,9 @@
 3. The binary will be in `./target/release/scope`
 
 ### Environment
+
 The binary presently requires the following environment variables to be set or in a `.env` file in the current working directory:
+
 - `DISCORD_TOKEN` - your discord token
 - `DEMO_CHANNEL_ID` - the channel ID to listen for messages on
 
@@ -37,6 +53,8 @@ The binary presently requires the following environment variables to be set or i
    - It's reccomended to use `cargo watch -- cargo run` from [cargo-watch](https://github.com/watchexec/cargo-watch), but it's in no way required
 
 ### Environment
+
 The binary presently requires the following environment variables to be set or in a `.env` file in the current working directory:
+
 - `DISCORD_TOKEN` - your discord token
 - `DEMO_CHANNEL_ID` - the channel ID to listen for messages on
