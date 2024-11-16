@@ -1,13 +1,12 @@
+pub mod app;
 pub mod app_state;
 pub mod channel;
 
 use std::{fs, path::PathBuf, sync::Arc};
 
 use app_state::AppState;
-use channel::ChannelView;
 use components::theme::Theme;
 use gpui::*;
-use scope_backend_discord::{channel::DiscordChannel, client::DiscordClient, message::DiscordMessage, snowflake::Snowflake};
 
 struct Assets {
   base: PathBuf,
@@ -41,21 +40,12 @@ async fn main() {
 
   let app_state = Arc::new(AppState {});
 
-  let token = dotenv::var("DISCORD_TOKEN").expect("Must provide DISCORD_TOKEN in .env");
-  let demo_channel_id = dotenv::var("DEMO_CHANNEL_ID").expect("Must provide DEMO_CHANNEL_ID in .env");
-
-  let client = DiscordClient::new(token).await;
-
-  let channel = DiscordChannel::new(
-    client.clone(),
-    Snowflake {
-      content: demo_channel_id.parse().unwrap(),
-    },
-  )
-  .await;
-
-  App::new().with_assets(Assets { base: PathBuf::from("img") }).with_http_client(Arc::new(reqwest_client::ReqwestClient::new())).run(
-    move |cx: &mut AppContext| {
+  App::new()
+    .with_assets(Assets {
+      base: PathBuf::from("assets"),
+    })
+    .with_http_client(Arc::new(reqwest_client::ReqwestClient::new()))
+    .run(move |cx: &mut AppContext| {
       AppState::set_global(Arc::downgrade(&app_state), cx);
 
       if let Err(e) = init(app_state.clone(), cx) {
@@ -65,7 +55,16 @@ async fn main() {
 
       Theme::sync_system_appearance(cx);
 
-      cx.open_window(WindowOptions::default(), |cx| ChannelView::<DiscordMessage>::create(cx, channel)).unwrap();
-    },
-  );
+      let opts = WindowOptions {
+        window_decorations: Some(WindowDecorations::Client),
+        titlebar: Some(TitlebarOptions {
+          appears_transparent: true,
+          title: Some(SharedString::new_static("scope")),
+          ..Default::default()
+        }),
+        ..Default::default()
+      };
+
+      cx.open_window(opts, |cx| cx.new_view(|cx| crate::app::App::new(cx))).unwrap();
+    });
 }

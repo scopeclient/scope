@@ -60,8 +60,18 @@ pub fn message<M: Message>(message: MessageGroup<M>) -> impl IntoElement {
     .flex()
     .flex_row()
     .text_color(rgb(0xFFFFFF))
-    .gap_2()
-    .p_2()
-    .child(img(message.get_author().get_icon()).object_fit(gpui::ObjectFit::Fill).bg(rgb(0xFFFFFF)).rounded_full().w_12().h_12())
-    .child(div().flex().flex_col().child(message.get_author().get_display_name()).child(div().children(message.contents())))
+    .gap_4()
+    .pb_6()
+    .child(img(message.get_author().get_icon()).flex_shrink_0().object_fit(gpui::ObjectFit::Fill).bg(rgb(0xFFFFFF)).rounded_full().w_12().h_12())
+    .child(
+      div()
+        .flex()
+        .min_w_0()
+        .flex_shrink()
+        .flex_col()
+        // enabling this, and thus enabling ellipsis causes a consistent panic!?
+        // .child(div().text_ellipsis().min_w_0().child(message.get_author().get_display_name()))
+        .child(div().min_w_0().child(message.get_author().get_display_name()))
+        .children(message.contents()),
+    )
 }
