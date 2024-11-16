@@ -1,50 +1,65 @@
 use gpui::{div, IntoElement, ListAlignment, ListState, ParentElement, Pixels};
 
-use scope_chat::message::Message;
+use scope_chat::message::{Message, MessageAuthor};
 
-use super::message::message;
+use super::message::{message, MessageGroup};
 
 #[derive(Clone)]
 pub struct MessageList<M: Message + 'static> {
-  real_messages: Vec<M>,
-  pending_messages: Vec<M>,
+  messages: Vec<MessageGroup<M>>,
 }
 
 impl<M: Message> MessageList<M> {
   pub fn new() -> MessageList<M> {
-    Self {
-      real_messages: Vec::default(),
-      pending_messages: Vec::default(),
-    }
+    Self { messages: Vec::default() }
   }
 
   pub fn add_external_message(&mut self, message: M) {
-    if let Some((_, pending_index)) = self
-      .pending_messages
-      .iter()
-      .zip(0..)
-      .find(|(msg, _)| msg.get_nonce().map(|v1| message.get_nonce().map(|v2| v2 == v1).unwrap_or(false)).unwrap_or(false))
-    {
-      self.pending_messages.remove(pending_index);
+    if let Some(nonce) = message.get_nonce() {
+      let mut removal_index: Option<usize> = None;
+
+      for (group, index) in self.messages.iter_mut().zip(0..) {
+        let matching = group.find_matching(nonce);
+
+        if let Some(matching) = matching {
+          if group.size() == 1 {
+            removal_index = Some(index);
+          } else {
+            group.remove(matching);
+          }
+        }
+      }
+
+      if let Some(removal_index) = removal_index {
+        self.messages.remove(removal_index);
+      }
     }
 
-    self.real_messages.push(message);
+    let last = self.messages.last_mut();
+
+    if last.is_some() && last.as_ref().unwrap().get_author().get_id() == message.get_author().get_id() {
+      last.unwrap().add(message);
+    } else {
+      self.messages.push(MessageGroup::new(message));
+    }
   }
 
   pub fn add_pending_message(&mut self, pending_message: M) {
-    self.pending_messages.push(pending_message);
+    let last = self.messages.last_mut();
+
+    if last.is_some() && last.as_ref().unwrap().get_author().get_id() == pending_message.get_author().get_id() {
+      last.unwrap().add(pending_message);
+    } else {
+      self.messages.push(MessageGroup::new(pending_message));
+    }
   }
 
   pub fn length(&self) -> usize {
-    self.real_messages.len() + self.pending_messages.len()
+    self.messages.len()
   }
 
-  pub fn get(&self, index: usize) -> Option<&M> {
-    if index >= self.real_messages.len() {
-      self.pending_messages.get(index - self.real_messages.len())
-    } else {
-      self.real_messages.get(index)
-    }
+  pub fn get(&self, index: usize) -> Option<&MessageGroup<M>> {
+    self.messages.get(index)
   }
 
   pub fn create_list_state(&self) -> ListState {

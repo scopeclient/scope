@@ -7,7 +7,8 @@ pub trait Message: Clone {
   fn get_nonce(&self) -> Option<&String>;
 }
 
-pub trait MessageAuthor {
+pub trait MessageAuthor: PartialEq + Eq {
   fn get_display_name(&self) -> impl Element;
   fn get_icon(&self) -> String;
+  fn get_id(&self) -> String;
 }
