@@ -8,16 +8,20 @@ use crate::{client::DiscordClient, message::{author::{DiscordMessageAuthor, Disp
 pub struct DiscordChannel {
   channel_id: Snowflake,
   receiver: broadcast::Receiver<DiscordMessage>,
-  client: Arc<RwLock<DiscordClient>>
+  client: Arc<DiscordClient>,
 }
 
 impl DiscordChannel {
-  pub async fn new(client: Arc<RwLock<DiscordClient>>, channel_id: Snowflake) -> Self {
+  pub async fn new(client: Arc<DiscordClient>, channel_id: Snowflake) -> Self {
     let (sender, receiver) = broadcast::channel(10);
 
-    client.write().await.add_channel_message_sender(channel_id, sender).await;
+    client.add_channel_message_sender(channel_id, sender).await;
 
-    DiscordChannel { channel_id, receiver, client }
+    DiscordChannel {
+      channel_id,
+      receiver,
+      client,
+    }
   }
 }
 
@@ -35,7 +39,7 @@ impl Channel for DiscordChannel {
     let sent_nonce = nonce.clone();
 
     tokio::spawn(async move {
-      client.write().await.send_message(channel_id, sent_content, sent_nonce).await;
+      client.send_message(channel_id, sent_content, sent_nonce).await;
     });
 
     DiscordMessage {
@@ -52,7 +56,7 @@ impl Clone for DiscordChannel {
     Self {
       channel_id: self.channel_id.clone(),
       receiver: self.receiver.resubscribe(),
-      client: self.client.clone()
+      client: self.client.clone(),
     }
   }
 }

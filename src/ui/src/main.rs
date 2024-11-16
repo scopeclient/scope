@@ -1,5 +1,5 @@
-pub mod channel;
 pub mod app_state;
+pub mod channel;
 
 use std::{fs, path::PathBuf, sync::Arc};
 
@@ -30,44 +30,44 @@ impl AssetSource for Assets {
 actions!(main_menu, [Quit]);
 
 fn init(app_state: Arc<AppState>, cx: &mut AppContext) -> Result<()> {
-    components::init(cx);
+  components::init(cx);
 
-    cx.bind_keys([KeyBinding::new("cmd-q", Quit, None)]);
+  cx.bind_keys([KeyBinding::new("cmd-q", Quit, None)]);
 
-    Ok(())
+  Ok(())
 }
 
 #[tokio::main]
 async fn main() {
   env_logger::init();
 
-    let app_state = Arc::new(AppState {});
+  let app_state = Arc::new(AppState {});
 
     let token = dotenv::var("DISCORD_TOKEN").expect("Must provide DISCORD_TOKEN in .env");
     let demo_channel_id = dotenv::var("DEMO_CHANNEL_ID").expect("Must provide DEMO_CHANNEL_ID in .env");
 
   let mut client = DiscordClient::new(token);
 
-    let mut channel = DiscordChannel::new(client.clone(), Snowflake { content: demo_channel_id.parse().unwrap() }).await;
+  let channel = DiscordChannel::new(
+    client.clone(),
+    Snowflake {
+      content: demo_channel_id.parse().unwrap(),
+    },
+  )
+  .await;
 
-    App::new()
-        .with_assets(Assets {
-            base: PathBuf::from("img"),
-        })
-        .with_http_client(Arc::new(reqwest_client::ReqwestClient::new()))
-        .run(move |cx: &mut AppContext| {
-            AppState::set_global(Arc::downgrade(&app_state), cx);
+  App::new().with_assets(Assets { base: PathBuf::from("img") }).with_http_client(Arc::new(reqwest_client::ReqwestClient::new())).run(
+    move |cx: &mut AppContext| {
+      AppState::set_global(Arc::downgrade(&app_state), cx);
 
-            if let Err(e) = init(app_state.clone(), cx) {
-                log::error!("{}", e);
-                return;
-            }
+      if let Err(e) = init(app_state.clone(), cx) {
+        log::error!("{}", e);
+        return;
+      }
 
-            Theme::sync_system_appearance(cx);
+      Theme::sync_system_appearance(cx);
 
-            let window = cx.open_window(WindowOptions::default(), |cx| {
-                ChannelView::<DiscordMessage>::create(cx, channel)
-            })
-            .unwrap();
-        });
+      let window = cx.open_window(WindowOptions::default(), |cx| ChannelView::<DiscordMessage>::create(cx, channel)).unwrap();
+    },
+  );
 }
