@@ -16,7 +16,7 @@ use tokio::sync::{broadcast, Mutex, RwLock};
 use crate::{
   message::{
     author::{DiscordMessageAuthor, DisplayName},
-    content::DiscordMessageContent,
+    content::{DiscordImageContent, DiscordMessageContent},
     DiscordMessage,
   },
   snowflake::{self, Snowflake},
@@ -107,6 +107,21 @@ impl EventHandler for DiscordClient {
           author: DiscordMessageAuthor {
             display_name: DisplayName(msg.author.name.clone()),
             icon: msg.author.avatar_url().unwrap_or(msg.author.default_avatar_url()),
+          },
+          images: DiscordImageContent {
+            images: msg
+              .attachments
+              .clone()
+              .into_iter()
+              .filter(|attachment| {
+                if let Some(content_type) = &attachment.content_type {
+                  content_type.starts_with("image/")
+                } else {
+                  false
+                }
+              })
+              .collect(),
+            is_pending: false,
           },
           content: DiscordMessageContent {
             content: msg.content.clone(),

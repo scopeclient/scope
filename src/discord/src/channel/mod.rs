@@ -7,7 +7,7 @@ use crate::{
   client::DiscordClient,
   message::{
     author::{DiscordMessageAuthor, DisplayName},
-    content::DiscordMessageContent,
+    content::{DiscordImageContent, DiscordMessageContent},
     DiscordMessage,
   },
   snowflake::Snowflake,
@@ -53,6 +53,10 @@ impl Channel for DiscordChannel {
     DiscordMessage {
       content: DiscordMessageContent { content, is_pending: true },
       author: self.client.user().clone(),
+      images: DiscordImageContent {
+        images: vec![],
+        is_pending: true,
+      },
       id: Snowflake { content: 0 },
       nonce: Some(nonce),
     }

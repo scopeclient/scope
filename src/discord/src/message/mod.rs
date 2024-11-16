@@ -1,5 +1,5 @@
 use author::DiscordMessageAuthor;
-use content::DiscordMessageContent;
+use content::{DiscordImageContent, DiscordMessageContent};
 use gpui::{Element, IntoElement};
 use scope_chat::message::Message;
 
@@ -11,6 +11,7 @@ pub mod content;
 #[derive(Clone)]
 pub struct DiscordMessage {
   pub content: DiscordMessageContent,
+  pub images: DiscordImageContent,
   pub author: DiscordMessageAuthor,
   pub id: Snowflake,
   pub nonce: Option<String>,
@@ -23,6 +24,10 @@ impl Message for DiscordMessage {
 
   fn get_content(&self) -> impl Element {
     self.content.clone().into_element()
+  }
+
+  fn get_images(&self) -> impl Element {
+    self.images.clone().into_element()
   }
 
   fn get_identifier(&self) -> String {
