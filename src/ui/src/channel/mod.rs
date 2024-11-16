@@ -31,32 +31,17 @@ impl<M: Message + 'static> ChannelView<M> {
           loop {
             let message = channel.get_receiver().recv().await.unwrap();
 
-            println!("Got Message!");
+          async_model.update(&mut async_ctx, |data, ctx| {
+            data.add_external_message(message);
+            ctx.notify();
+          }).unwrap();
+        }
+      }).detach();
 
-            async_model
-              .update(&mut async_ctx, |data, ctx| {
-                data.messages.push(message);
-                ctx.notify();
-              })
-              .unwrap();
-          }
-        })
-        .detach();
-
-      ctx
-        .observe(&state_model, |this: &mut ChannelView<M>, model, cx| {
-          let items = model.read(cx).messages.clone();
-
-          this.list_state = ListState::new(items.len(), ListAlignment::Bottom, Pixels(20.), move |idx, _cx| {
-            let item = items.get(idx).unwrap().clone();
-            div().child(message(item)).into_any_element()
-          });
-
-          cx.notify();
-        })
-        .detach();
-
-      let items = state_model.read(ctx).messages.clone();
+      ctx.observe(&state_model, |this: &mut ChannelView<M>, model, cx| {
+        this.list_state = model.read(cx).create_list_state();
+        cx.notify();
+      }).detach();
 
       let message_input = ctx.new_view(|cx| {
         let mut input = components::input::TextInput::new(cx);
@@ -76,21 +61,19 @@ impl<M: Message + 'static> ChannelView<M> {
               text_input.set_text("", cx);
             });
 
-            ctx.foreground_executor().spawn(async move {
-              let nonce = random_string::generate(20, random_string::charsets::ALPHANUMERIC);
+            let nonce = random_string::generate(20, random_string::charsets::ALPHANUMERIC);
+            let pending = channel_sender.send_message(content, nonce);
 
-              channel_sender.send_message(content, nonce).await;
-            }).detach();
+            channel_view.list_model.update(ctx, move |v, _| {
+              v.add_pending_message(pending);
+            });
           }
           _ => {}
         }
       }).detach();  
   
       ChannelView::<M> {
-        list_state: ListState::new(items.len(), ListAlignment::Bottom, Pixels(20.), move |idx, _cx| {
-          let item = items.get(idx).unwrap().clone();
-          div().child(message(item)).into_any_element()
-        }),
+        list_state: state_model.read(ctx).create_list_state(),
         list_model: state_model,
         message_input,
       }

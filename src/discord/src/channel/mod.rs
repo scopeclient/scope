@@ -3,7 +3,7 @@ use std::sync::Arc;
 use scope_chat::channel::Channel;
 use tokio::sync::{broadcast, RwLock};
 
-use crate::{client::DiscordClient, message::DiscordMessage, snowflake::Snowflake};
+use crate::{client::DiscordClient, message::{author::{DiscordMessageAuthor, DisplayName}, content::DiscordMessageContent, DiscordMessage}, snowflake::Snowflake};
 
 pub struct DiscordChannel {
   channel_id: Snowflake,
@@ -28,10 +28,22 @@ impl Channel for DiscordChannel {
     self.receiver.resubscribe()
   }
 
-  async fn send_message(&self, content: String, nonce: String) {
-    println!("Sending: {:?}", content);
+  fn send_message(&self, content: String, nonce: String) -> DiscordMessage {
+    let client = self.client.clone();
+    let channel_id = self.channel_id;
+    let sent_content = content.clone();
+    let sent_nonce = nonce.clone();
 
-    self.client.write().await.send_message(self.channel_id, content, nonce).await;
+    tokio::spawn(async move {
+      client.write().await.send_message(channel_id, sent_content, sent_nonce).await;
+    });
+
+    DiscordMessage {
+      content: DiscordMessageContent { content, is_pending: true },
+      author: DiscordMessageAuthor { display_name: DisplayName("Pending".to_owned()), icon: "".to_owned() },
+      id: Snowflake { content: 0 },
+      nonce: Some(nonce),
+    }
   }
 }
 

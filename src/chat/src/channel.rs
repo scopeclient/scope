@@ -7,5 +7,5 @@ pub trait Channel: Clone {
 
   fn get_receiver(&self) -> broadcast::Receiver<Self::Message>;
 
-  fn send_message(&self, content: String, nonce: String) -> impl std::future::Future<Output = ()>;
+  fn send_message(&self, content: String, nonce: String) -> Self::Message;
 }

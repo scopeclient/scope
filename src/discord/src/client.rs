@@ -80,7 +80,8 @@ impl EventHandler for RemoteDiscordClient {
             icon: msg.author.avatar_url().unwrap_or(msg.author.default_avatar_url()),
           },
           content: DiscordMessageContent {
-            content: msg.content.clone()
+            content: msg.content.clone(),
+            is_pending: false,
           },
           nonce: msg.nonce.clone().map(|n| match n {
             Nonce::Number(n) => n.to_string(),
