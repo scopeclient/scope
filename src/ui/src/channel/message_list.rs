@@ -17,4 +17,8 @@ impl<M: Message> MessageList<M> {
   pub fn new() -> MessageList<M> {
     Self { messages: Vec::default() }
   }
+
+  pub fn add_external_message(&mut self, message: M) {
+
+  }
 }

@@ -1,4 +1,4 @@
-#[derive(Clone, Hash, PartialEq, Eq, Copy)]
+#[derive(Clone, Hash, PartialEq, Eq, Copy, Debug)]
 pub struct Snowflake {
   pub content: u64,
 }

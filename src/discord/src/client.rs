@@ -19,19 +19,26 @@ use crate::{
 #[derive(Default)]
 pub struct DiscordClient {
   channel_message_event_handlers: HashMap<Snowflake, Vec<broadcast::Sender<DiscordMessage>>>,
+  client: Option<serenity::Client>
 }
 
 impl DiscordClient {
   pub fn new(token: String) -> Arc<RwLock<DiscordClient>> {
     let client = Arc::new(RwLock::new(DiscordClient::default()));
     let remote = RemoteDiscordClient(client.clone());
+    let async_client = client.clone();
 
-    tokio::spawn(async {
-      let mut client = serenity::Client::builder(token, GatewayIntents::all()).event_handler(remote).await.expect("Error creating client");
+    tokio::spawn(async move {
+      let mut client = serenity::Client::builder(token, GatewayIntents::all())
+        .event_handler(remote)
+        .await
+        .expect("Error creating client");
 
       if let Err(why) = client.start().await {
         panic!("Client error: {why:?}");
       }
+
+      async_client.write().await.client = Some(client);
     });
 
     client
@@ -39,6 +46,11 @@ impl DiscordClient {
 
   pub async fn add_channel_message_sender(&mut self, channel: Snowflake, sender: broadcast::Sender<DiscordMessage>) {
     self.channel_message_event_handlers.entry(channel).or_default().push(sender);
+  }
+
+  pub async fn send_message(&mut self, channel_id: Snowflake, content: String, nonce: String) {
+    println!("All the way to discord~! {:?} {:?}", channel_id, content);
+    ChannelId::new(channel_id.content).send_message(self.client.as_ref().unwrap().http.clone(), CreateMessage::new().content(content).enforce_nonce(true).nonce(serenity::all::Nonce::String(nonce))).await.unwrap();
   }
 }
 
@@ -68,8 +80,12 @@ impl EventHandler for RemoteDiscordClient {
             icon: msg.author.avatar_url().unwrap_or(msg.author.default_avatar_url()),
           },
           content: DiscordMessageContent {
-            content: msg.content.clone(),
+            content: msg.content.clone()
           },
+          nonce: msg.nonce.clone().map(|n| match n {
+            Nonce::Number(n) => n.to_string(),
+            Nonce::String(s) => s,
+          })
         });
       }
     }
