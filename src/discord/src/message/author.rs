@@ -5,7 +5,15 @@ use scope_chat::message::MessageAuthor;
 pub struct DiscordMessageAuthor {
   pub display_name: DisplayName,
   pub icon: String,
+  pub id: String,
 }
+
+impl PartialEq for DiscordMessageAuthor {
+  fn eq(&self, other: &Self) -> bool {
+    self.id == other.id
+  }
+}
+impl Eq for DiscordMessageAuthor {}
 
 impl MessageAuthor for DiscordMessageAuthor {
   fn get_display_name(&self) -> impl Element {
@@ -14,6 +22,10 @@ impl MessageAuthor for DiscordMessageAuthor {
 
   fn get_icon(&self) -> String {
     self.icon.clone()
+  }
+
+  fn get_id(&self) -> String {
+    self.id.clone()
   }
 }
 
