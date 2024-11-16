@@ -1,16 +1,9 @@
 pub mod message;
 pub mod message_list;
 
-use std::ops::Deref;
-
 use components::input::{InputEvent, TextInput};
-use gpui::{
-  div, list, rgb, AppContext, Context, IntoElement, ListAlignment, ListState, Model, ParentElement, Pixels, Render, SharedString, Styled, View,
-  VisualContext,
-};
-use message::message;
+use gpui::{div, list, Context, ListState, Model, ParentElement, Render, Styled, View, VisualContext};
 use message_list::MessageList;
-use scope_backend_discord::message::DiscordMessage;
 use scope_chat::{channel::Channel, message::Message};
 
 pub struct ChannelView<M: Message + 'static> {
@@ -20,7 +13,7 @@ pub struct ChannelView<M: Message + 'static> {
 }
 
 impl<M: Message + 'static> ChannelView<M> {
-  pub fn create(ctx: &mut gpui::WindowContext, mut channel: impl Channel<Message = M> + 'static) -> View<Self> {
+  pub fn create(ctx: &mut gpui::WindowContext, channel: impl Channel<Message = M> + 'static) -> View<Self> {
     let view = ctx.new_view(|ctx| {
       let state_model = ctx.new_model(|_cx| MessageList::<M>::new());
 
@@ -94,7 +87,7 @@ impl<M: Message + 'static> ChannelView<M> {
 }
 
 impl<M: Message + 'static> Render for ChannelView<M> {
-  fn render(&mut self, cx: &mut gpui::ViewContext<Self>) -> impl gpui::IntoElement {
+  fn render(&mut self, _: &mut gpui::ViewContext<Self>) -> impl gpui::IntoElement {
     div().flex().flex_col().w_full().h_full().child(list(self.list_state.clone()).w_full().h_full()).child(self.message_input.clone())
   }
 }

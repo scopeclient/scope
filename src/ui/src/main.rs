@@ -8,8 +8,6 @@ use channel::ChannelView;
 use components::theme::Theme;
 use gpui::*;
 use scope_backend_discord::{channel::DiscordChannel, client::DiscordClient, message::DiscordMessage, snowflake::Snowflake};
-use scope_chat::channel::Channel;
-use scope_util::ResultExt;
 
 struct Assets {
   base: PathBuf,
@@ -29,7 +27,7 @@ impl AssetSource for Assets {
 
 actions!(main_menu, [Quit]);
 
-fn init(app_state: Arc<AppState>, cx: &mut AppContext) -> Result<()> {
+fn init(_: Arc<AppState>, cx: &mut AppContext) -> Result<()> {
   components::init(cx);
 
   cx.bind_keys([KeyBinding::new("cmd-q", Quit, None)]);
@@ -46,7 +44,7 @@ async fn main() {
   let token = dotenv::var("DISCORD_TOKEN").expect("Must provide DISCORD_TOKEN in .env");
   let demo_channel_id = dotenv::var("DEMO_CHANNEL_ID").expect("Must provide DEMO_CHANNEL_ID in .env");
 
-  let mut client = DiscordClient::new(token).await;
+  let client = DiscordClient::new(token).await;
 
   let channel = DiscordChannel::new(
     client.clone(),
@@ -67,7 +65,7 @@ async fn main() {
 
       Theme::sync_system_appearance(cx);
 
-      let window = cx.open_window(WindowOptions::default(), |cx| ChannelView::<DiscordMessage>::create(cx, channel)).unwrap();
+      cx.open_window(WindowOptions::default(), |cx| ChannelView::<DiscordMessage>::create(cx, channel)).unwrap();
     },
   );
 }
