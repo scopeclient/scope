@@ -78,16 +78,27 @@ impl RawEventHandler for RawClient {
   async fn raw_event(&self, ctx: Context, ev: serenity::model::prelude::Event) {
     if let Event::Unknown(unk) = ev {
       if unk.kind == "READY" {
-        let user = unk.value.as_object().unwrap().get("user").unwrap().as_object().unwrap();
+        if let Some(user) = unk.value.as_object().and_then(|obj| obj.get("user")).and_then(|u| u.as_object()) {
+          let username = user.get("username").and_then(|u| u.as_str()).unwrap_or("Unknown User").to_owned();
 
-        self.0.user.get_or_init(|| DiscordMessageAuthor {
-          display_name: DisplayName(user.get("username").unwrap().as_str().unwrap().to_owned()),
-          icon: format!(
-            "https://cdn.discordapp.com/avatars/{}/{}",
-            user.get("id").unwrap().as_str().unwrap(),
-            user.get("avatar").unwrap().as_str().unwrap()
-          ),
-        });
+          let user_id = user.get("id").and_then(|id| id.as_str()).unwrap_or_default();
+
+          let icon = user
+            .get("avatar")
+            .and_then(|avatar| avatar.as_str())
+            .map(|avatar| format!("https://cdn.discordapp.com/avatars/{}/{}", user_id, avatar))
+            .unwrap_or_else(|| {
+              format!(
+                "https://cdn.discordapp.com/embed/avatars/{}.png",
+                (user_id.parse::<u64>().unwrap_or(0) % 5)
+              )
+            });
+
+          self.0.user.get_or_init(|| DiscordMessageAuthor {
+            display_name: DisplayName(username),
+            icon,
+          });
+        }
       }
     }
   }
