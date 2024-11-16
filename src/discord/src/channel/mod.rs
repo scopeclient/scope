@@ -52,10 +52,7 @@ impl Channel for DiscordChannel {
 
     DiscordMessage {
       content: DiscordMessageContent { content, is_pending: true },
-      author: DiscordMessageAuthor {
-        display_name: DisplayName("Pending".to_owned()),
-        icon: "".to_owned(),
-      },
+      author: self.client.user().clone(),
       id: Snowflake { content: 0 },
       nonce: Some(nonce),
     }

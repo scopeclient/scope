@@ -29,7 +29,7 @@ impl Message for DiscordMessage {
     self.id.to_string()
   }
 
-  fn get_nonce(&self) -> Option<String> {
-    self.nonce.clone()
+  fn get_nonce(&self) -> Option<&String> {
+    self.nonce.as_ref()
   }
 }

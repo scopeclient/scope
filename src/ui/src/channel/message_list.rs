@@ -19,6 +19,15 @@ impl<M: Message> MessageList<M> {
   }
 
   pub fn add_external_message(&mut self, message: M) {
+    if let Some((_, pending_index)) = self
+      .pending_messages
+      .iter()
+      .zip(0..)
+      .find(|(msg, _)| msg.get_nonce().map(|v1| message.get_nonce().map(|v2| v2 == v1).unwrap_or(false)).unwrap_or(false))
+    {
+      self.pending_messages.remove(pending_index);
+    }
+
     self.real_messages.push(message);
   }
 
@@ -31,10 +40,10 @@ impl<M: Message> MessageList<M> {
   }
 
   pub fn get(&self, index: usize) -> Option<&M> {
-    if index >= self.pending_messages.len() {
-      self.real_messages.get(index - self.pending_messages.len())
+    if index >= self.real_messages.len() {
+      self.pending_messages.get(index - self.real_messages.len())
     } else {
-      self.pending_messages.get(index)
+      self.real_messages.get(index)
     }
   }
 

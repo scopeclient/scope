@@ -26,6 +26,7 @@ use crate::{
 pub struct DiscordClient {
   channel_message_event_handlers: RwLock<HashMap<Snowflake, Vec<broadcast::Sender<DiscordMessage>>>>,
   client: OnceLock<serenity::Client>,
+  user: OnceLock<DiscordMessageAuthor>,
 }
 
 impl DiscordClient {
@@ -51,6 +52,10 @@ impl DiscordClient {
     self.client.get().unwrap()
   }
 
+  pub fn user(&self) -> &DiscordMessageAuthor {
+    self.user.get().unwrap()
+  }
+
   pub async fn add_channel_message_sender(&self, channel: Snowflake, sender: broadcast::Sender<DiscordMessage>) {
     self.channel_message_event_handlers.write().await.entry(channel).or_default().push(sender);
   }
@@ -72,7 +77,18 @@ struct RawClient(Arc<DiscordClient>);
 impl RawEventHandler for RawClient {
   async fn raw_event(&self, ctx: Context, ev: serenity::model::prelude::Event) {
     if let Event::Unknown(unk) = ev {
-      // writeln!(&mut File::create(unk.kind).unwrap(), "{:#?}", unk.value);
+      if unk.kind == "READY" {
+        let user = unk.value.as_object().unwrap().get("user").unwrap().as_object().unwrap();
+
+        self.0.user.get_or_init(|| DiscordMessageAuthor {
+          display_name: DisplayName(user.get("username").unwrap().as_str().unwrap().to_owned()),
+          icon: format!(
+            "https://cdn.discordapp.com/avatars/{}/{}",
+            user.get("id").unwrap().as_str().unwrap(),
+            user.get("avatar").unwrap().as_str().unwrap()
+          ),
+        });
+      }
     }
   }
 }

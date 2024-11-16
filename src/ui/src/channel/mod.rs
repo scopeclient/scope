@@ -75,6 +75,8 @@ impl<M: Message + 'static> ChannelView<M> {
             channel_view.list_model.update(ctx, move |v, _| {
               v.add_pending_message(pending);
             });
+            channel_view.list_state = channel_view.list_model.read(ctx).create_list_state();
+            ctx.notify();
           }
           _ => {}
         })
