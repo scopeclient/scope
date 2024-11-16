@@ -1,0 +1,318 @@
+name: "Nightly Builds"
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch or tag to build'
+        required: true
+        default: 'main'
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  get-version:
+    name: Get Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get Version
+        id: get_version
+        run: echo "version=$(grep '^version = ' src/ui/Cargo.toml | cut -d '"' -f2)" >> $GITHUB_OUTPUT
+
+  build-linux:
+    needs: get-version
+    name: Build Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.80.0
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "rust-cache-linux"
+          cache-on-failure: true
+
+      - name: Install Linux Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libxkbcommon-x11-dev libx11-dev libvulkan-dev vulkan-validationlayers \
+          libgtk-3-dev libgdk3.0-cil-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev \
+          libwebkit2gtk-4.1-dev
+
+      - name: Build Release
+        run: cargo build --release
+
+      - name: Create AppImage
+        run: |
+          sudo apt-get install -y libfuse2
+          # Create .desktop file
+          mkdir -p AppDir/usr/share/applications
+          cat > AppDir/usr/share/applications/scope.desktop << EOF
+          [Desktop Entry]
+          Name=Scope
+          Exec=scope
+          Icon=scope
+          Type=Application
+          Categories=Development;
+          EOF
+          
+          # Copy icon
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps/
+          cp .github/scope-round-200.png AppDir/usr/share/icons/hicolor/256x256/apps/scope.png
+          
+          # Copy binary
+          mkdir -p AppDir/usr/bin
+          cp target/release/scope AppDir/usr/bin/
+          
+          # Create AppImage
+          wget -O linuxdeploy-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage
+          ./linuxdeploy-x86_64.AppImage --appdir AppDir --output appimage
+          mv Scope*.AppImage Scope-${{ needs.get-version.outputs.version }}.AppImage
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Scope-${{ needs.get-version.outputs.version }}.AppImage
+          path: Scope-${{ needs.get-version.outputs.version }}.AppImage
+
+  build-windows:
+    needs: get-version
+    name: Build Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.80.0
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "rust-cache-windows"
+          cache-on-failure: true
+
+      - name: Build Release
+        run: cargo build --release
+
+      - name: Install WiX Toolset
+        run: |
+          curl -OL https://github.com/wixtoolset/wix3/releases/download/wix3112rtm/wix311-binaries.zip
+          Expand-Archive wix311-binaries.zip -DestinationPath wix
+          echo "${{ github.workspace }}\wix" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Create WiX files
+        shell: pwsh
+        run: |
+          @"
+          <?xml version='1.0' encoding='windows-1252'?>
+          <Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+            <Product Name='Scope' Manufacturer='Scope' Id='*' UpgradeCode='12345678-1234-1234-1234-111111111111'
+              Language='1033' Codepage='1252' Version='${{ needs.get-version.outputs.version }}'>
+              <Package Id='*' Keywords='Installer' Description='Scope Installer'
+                Comments='Scope is a development tool' Manufacturer='Scope'
+                InstallerVersion='100' Languages='1033' Compressed='yes' SummaryCodepage='1252' />
+              <Media Id='1' Cabinet='Scope.cab' EmbedCab='yes' />
+              <Directory Id='TARGETDIR' Name='SourceDir'>
+                <Directory Id='ProgramFilesFolder' Name='PFiles'>
+                  <Directory Id='INSTALLDIR' Name='Scope'>
+                    <Component Id='MainExecutable' Guid='12345678-1234-1234-1234-222222222222'>
+                      <File Id='ScopeEXE' Name='scope.exe' DiskId='1' Source='target/release/scope.exe' KeyPath='yes'>
+                        <Shortcut Id='startmenuScope' Directory='ProgramMenuDir' Name='Scope' WorkingDirectory='INSTALLDIR' Icon='Scope.exe' IconIndex='0' Advertise='yes' />
+                      </File>
+                    </Component>
+                  </Directory>
+                </Directory>
+                <Directory Id='ProgramMenuFolder' Name='Programs'>
+                  <Directory Id='ProgramMenuDir' Name='Scope'>
+                    <Component Id='ProgramMenuDir' Guid='12345678-1234-1234-1234-333333333333'>
+                      <RemoveFolder Id='ProgramMenuDir' On='uninstall' />
+                      <RegistryValue Root='HKCU' Key='Software\[Manufacturer]\[ProductName]' Type='string' Value='' KeyPath='yes' />
+                    </Component>
+                  </Directory>
+                </Directory>
+              </Directory>
+              <Feature Id='Complete' Level='1'>
+                <ComponentRef Id='MainExecutable' />
+                <ComponentRef Id='ProgramMenuDir' />
+              </Feature>
+              <Icon Id='Scope.exe' SourceFile='target/release/scope.exe' />
+            </Product>
+          </Wix>
+          "@ | Out-File -FilePath "scope.wxs" -Encoding UTF8
+
+      - name: Build MSI
+        run: |
+          candle scope.wxs
+          light -ext WixUIExtension scope.wixobj
+          mv scope.msi Scope-${{ needs.get-version.outputs.version }}.msi
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Scope-${{ needs.get-version.outputs.version }}.msi
+          path: Scope-${{ needs.get-version.outputs.version }}.msi
+
+  build-macos-intel:
+    needs: get-version
+    name: Build macOS (Intel)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.80.0
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "rust-cache-macos-intel"
+          cache-on-failure: true
+
+      - name: Add Target
+        run: rustup target add x86_64-apple-darwin
+
+      - name: Build Release
+        shell: bash
+        run: cargo build --release --target x86_64-apple-darwin
+
+      - name: Create App Bundle
+        run: |
+          mkdir -p Scope.app/Contents/{MacOS,Resources}
+          cp target/x86_64-apple-darwin/release/scope Scope.app/Contents/MacOS/
+          cp .github/scope-round-200.png Scope.app/Contents/Resources/scope.icns
+          
+          cat > Scope.app/Contents/Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleName</key>
+              <string>Scope</string>
+              <key>CFBundleDisplayName</key>
+              <string>Scope</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.scope.app</string>
+              <key>CFBundleVersion</key>
+              <string>${{ needs.get-version.outputs.version }}</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleSignature</key>
+              <string>????</string>
+              <key>CFBundleExecutable</key>
+              <string>scope</string>
+              <key>CFBundleIconFile</key>
+              <string>scope.icns</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>10.13</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Create DMG
+        run: |
+          hdiutil create -volname "Scope" -srcfolder Scope.app -ov -format UDZO Scope-${{ needs.get-version.outputs.version }}_intel.dmg
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Scope-${{ needs.get-version.outputs.version }}_intel.dmg
+          path: Scope-${{ needs.get-version.outputs.version }}_intel.dmg
+
+  build-macos-silicon:
+    needs: get-version
+    name: Build macOS (Silicon)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.80.0
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "rust-cache-macos-silicon"
+          cache-on-failure: true
+
+      - name: Add Target
+        run: rustup target add aarch64-apple-darwin
+
+      - name: Build Release
+        shell: bash
+        run: cargo build --release --target aarch64-apple-darwin
+
+      - name: Create App Bundle
+        run: |
+          mkdir -p Scope.app/Contents/{MacOS,Resources}
+          cp target/aarch64-apple-darwin/release/scope Scope.app/Contents/MacOS/
+          cp .github/scope-round-200.png Scope.app/Contents/Resources/scope.icns
+          
+          cat > Scope.app/Contents/Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleName</key>
+              <string>Scope</string>
+              <key>CFBundleDisplayName</key>
+              <string>Scope</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.scope.app</string>
+              <key>CFBundleVersion</key>
+              <string>${{ needs.get-version.outputs.version }}</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>CFBundleSignature</key>
+              <string>????</string>
+              <key>CFBundleExecutable</key>
+              <string>scope</string>
+              <key>CFBundleIconFile</key>
+              <string>scope.icns</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>10.13</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Create DMG
+        run: |
+          hdiutil create -volname "Scope" -srcfolder Scope.app -ov -format UDZO Scope-${{ needs.get-version.outputs.version }}_silicon.dmg
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Scope-${{ needs.get-version.outputs.version }}_silicon.dmg
+          path: Scope-${{ needs.get-version.outputs.version }}_silicon.dmg
