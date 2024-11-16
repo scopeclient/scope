@@ -57,6 +57,7 @@ pub fn message<M: Message>(message: MessageGroup<M>) -> impl IntoElement {
     .flex_row()
     .text_color(rgb(0xFFFFFF))
     .gap_4()
+    .pb_6()
     .child(img(message.get_author().get_icon()).object_fit(gpui::ObjectFit::Fill).bg(rgb(0xFFFFFF)).rounded_full().w_12().h_12())
     .child(div().flex().flex_col().child(message.get_author().get_display_name()).child(div().children(message.contents())))
 }
