@@ -93,6 +93,7 @@ impl RawEventHandler for RawClient {
           self.0.user.get_or_init(|| DiscordMessageAuthor {
             display_name: DisplayName(username),
             icon,
+            id: user_id.to_owned(),
           });
         }
       }

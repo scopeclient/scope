@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use author::DiscordMessageAuthor;
 use content::DiscordMessageContent;
 use gpui::{Element, IntoElement};
