@@ -978,7 +978,7 @@ checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
 [[package]]
 name = "command_attr"
 version = "0.5.2"
-source = "git+https://github.com/nshout/serenity-self#a7238a1d46a28e8c5006a9961a292fc37cbedef2"
+source = "git+https://github.com/scopeclient/serenity#a7238a1d46a28e8c5006a9961a292fc37cbedef2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4488,7 +4488,7 @@ dependencies = [
 [[package]]
 name = "serenity"
 version = "0.13.0"
-source = "git+https://github.com/nshout/serenity-self#a7238a1d46a28e8c5006a9961a292fc37cbedef2"
+source = "git+https://github.com/scopeclient/serenity#a7238a1d46a28e8c5006a9961a292fc37cbedef2"
 dependencies = [
  "arrayvec",
  "async-trait",
