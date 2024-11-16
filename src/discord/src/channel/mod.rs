@@ -14,7 +14,7 @@ impl DiscordChannel {
   pub async fn new(client: &mut Arc<RwLock<DiscordClient>>, channel_id: Snowflake) -> Self {
     let (sender, receiver) = broadcast::channel(10);
 
-    DiscordClient::add_channel_message_sender(client, channel_id, sender).await;
+    client.write().await.add_channel_message_sender(channel_id, sender).await;
 
     DiscordChannel { channel_id, receiver }
   }

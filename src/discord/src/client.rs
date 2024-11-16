@@ -29,10 +29,8 @@ impl DiscordClient {
     client
   }
 
-  pub async fn add_channel_message_sender(this: &mut Arc<RwLock<Self>>, channel: Snowflake, sender: broadcast::Sender<DiscordMessage>) {
-    let mut this = this.write().await;
-
-    this.channel_message_event_handlers.entry(channel).or_default().push(sender);
+  pub async fn add_channel_message_sender(&mut self, channel: Snowflake, sender: broadcast::Sender<DiscordMessage>) {
+    self.channel_message_event_handlers.entry(channel).or_default().push(sender);
   }
 }
 
