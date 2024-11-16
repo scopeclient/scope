@@ -14,6 +14,12 @@ keywords = ["discord", "scope", "reticle"]
 
 [dependencies]
 gpui = { git = "https://github.com/zed-industries/zed.git", version = "0.1.0", default-features = false, features = ["http_client", "font-kit"]}
+reqwest_client = { git = "https://github.com/zed-industries/zed.git", version = "0.1.0"}
+scope-chat = { version = "0.1.0", path = "../chat" }
+scope-backend-discord = { version = "0.1.0", path = "../discord" }
+dotenv = "0.15.0"
+env_logger = "0.11.5"
+tokio = { version = "1.41.1", features = ["full"] }
 
 [features]
 default = ["gpui/x11"]
