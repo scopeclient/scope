@@ -1,12 +1,11 @@
-use std::fmt::{Display, Formatter, Result};
-
 #[derive(Clone, Hash, PartialEq, Eq, Copy, Debug)]
 pub struct Snowflake {
   pub content: u64,
 }
 
-impl Display for Snowflake {
-  fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-    write!(f, "{}", self.content)
+#[allow(clippy::to_string_trait_impl)]
+impl ToString for Snowflake {
+  fn to_string(&self) -> String {
+    self.content.to_string()
   }
 }
