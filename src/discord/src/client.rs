@@ -87,6 +87,7 @@ impl RawEventHandler for RawClient {
             user.get("id").unwrap().as_str().unwrap(),
             user.get("avatar").unwrap().as_str().unwrap()
           ),
+          id: user.get("id").unwrap().as_str().unwrap().to_owned(),
         });
       }
     }
@@ -107,6 +108,7 @@ impl EventHandler for DiscordClient {
           author: DiscordMessageAuthor {
             display_name: DisplayName(msg.author.name.clone()),
             icon: msg.author.avatar_url().unwrap_or(msg.author.default_avatar_url()),
+            id: msg.author.id.to_string(),
           },
           content: DiscordMessageContent {
             content: msg.content.clone(),
