@@ -28,6 +28,13 @@ jobs:
           shared-key: "rust-cache"
           cache-on-failure: true
 
+      - name: Install Linux Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libxkbcommon-x11-dev libx11-dev libvulkan-dev vulkan-validationlayers \
+          libgtk-3-dev libgdk3.0-cil-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev \
+          libwebkit2gtk-4.1-dev
+
       - name: Run `cargo check`
         run: cargo check
 
