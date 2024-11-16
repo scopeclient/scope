@@ -34,6 +34,7 @@ The binary presently requires the following environment variables to be set or i
 
 1. Clone the repository
 2. Run `cargo run`
+   - It's reccomended to use `cargo watch -- cargo run` from [cargo-watch](https://github.com/watchexec/cargo-watch), but it's in no way required
 
 ### Environment
 The binary presently requires the following environment variables to be set or in a `.env` file in the current working directory:
