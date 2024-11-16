@@ -1,15 +1,11 @@
 use std::sync::Arc;
 
 use scope_chat::channel::Channel;
-use tokio::sync::{broadcast, RwLock};
+use tokio::sync::broadcast;
 
 use crate::{
   client::DiscordClient,
-  message::{
-    author::{DiscordMessageAuthor, DisplayName},
-    content::DiscordMessageContent,
-    DiscordMessage,
-  },
+  message::{content::DiscordMessageContent, DiscordMessage},
   snowflake::Snowflake,
 };
 

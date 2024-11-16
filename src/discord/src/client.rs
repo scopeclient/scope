@@ -1,17 +1,13 @@
 use std::{
   collections::HashMap,
-  fs::File,
-  rc::Rc,
   sync::{Arc, OnceLock},
 };
 
 use serenity::{
   all::{ChannelId, Context, CreateMessage, Event, EventHandler, GatewayIntents, Message, Nonce, RawEventHandler},
   async_trait,
-  futures::SinkExt,
 };
-use std::io::Write;
-use tokio::sync::{broadcast, Mutex, RwLock};
+use tokio::sync::{broadcast, RwLock};
 
 use crate::{
   message::{
@@ -19,7 +15,7 @@ use crate::{
     content::DiscordMessageContent,
     DiscordMessage,
   },
-  snowflake::{self, Snowflake},
+  snowflake::Snowflake,
 };
 
 #[derive(Default)]
@@ -75,7 +71,7 @@ struct RawClient(Arc<DiscordClient>);
 
 #[async_trait]
 impl RawEventHandler for RawClient {
-  async fn raw_event(&self, ctx: Context, ev: serenity::model::prelude::Event) {
+  async fn raw_event(&self, _: Context, ev: serenity::model::prelude::Event) {
     if let Event::Unknown(unk) = ev {
       if unk.kind == "READY" {
         let user = unk.value.as_object().unwrap().get("user").unwrap().as_object().unwrap();
