@@ -1,13 +1,24 @@
 use std::{collections::HashMap, rc::Rc, sync::Arc};
 
-use serenity::{all::{Context, EventHandler, GatewayIntents, Message}, async_trait, futures::SinkExt};
+use serenity::{
+  all::{Context, EventHandler, GatewayIntents, Message},
+  async_trait,
+  futures::SinkExt,
+};
 use tokio::sync::{broadcast, Mutex, RwLock};
 
-use crate::{message::{author::{DiscordMessageAuthor, DisplayName}, content::DiscordMessageContent, DiscordMessage}, snowflake::{self, Snowflake}};
+use crate::{
+  message::{
+    author::{DiscordMessageAuthor, DisplayName},
+    content::DiscordMessageContent,
+    DiscordMessage,
+  },
+  snowflake::{self, Snowflake},
+};
 
 #[derive(Default)]
 pub struct DiscordClient {
-  channel_message_event_handlers: HashMap<Snowflake, Vec<broadcast::Sender<DiscordMessage>>>
+  channel_message_event_handlers: HashMap<Snowflake, Vec<broadcast::Sender<DiscordMessage>>>,
 }
 
 impl DiscordClient {
@@ -16,10 +27,7 @@ impl DiscordClient {
     let remote = RemoteDiscordClient(client.clone());
 
     tokio::spawn(async {
-      let mut client = serenity::Client::builder(token, GatewayIntents::all())
-        .event_handler(remote)
-        .await
-        .expect("Error creating client");
+      let mut client = serenity::Client::builder(token, GatewayIntents::all()).event_handler(remote).await.expect("Error creating client");
 
       if let Err(why) = client.start().await {
         panic!("Client error: {why:?}");
@@ -45,7 +53,9 @@ impl EventHandler for RemoteDiscordClient {
   async fn message(&self, _: Context, msg: Message) {
     println!("Got message: {:?} {:?}", msg.channel_id, msg.content);
 
-    let snowflake = Snowflake { content: msg.channel_id.get() };
+    let snowflake = Snowflake {
+      content: msg.channel_id.get(),
+    };
 
     if let Some(vec) = self.0.read().await.channel_message_event_handlers.get(&snowflake) {
       for sender in vec {
@@ -55,11 +65,11 @@ impl EventHandler for RemoteDiscordClient {
           id: snowflake,
           author: DiscordMessageAuthor {
             display_name: DisplayName(msg.author.name.clone()),
-            icon: msg.author.avatar_url().unwrap_or(msg.author.default_avatar_url())
+            icon: msg.author.avatar_url().unwrap_or(msg.author.default_avatar_url()),
           },
           content: DiscordMessageContent {
-            content: msg.content.clone()
-          }
+            content: msg.content.clone(),
+          },
         });
       }
     }

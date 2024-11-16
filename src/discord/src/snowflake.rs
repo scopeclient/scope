@@ -1,6 +1,6 @@
 #[derive(Clone, Hash, PartialEq, Eq, Copy)]
 pub struct Snowflake {
-  pub content: u64
+  pub content: u64,
 }
 
 impl ToString for Snowflake {
