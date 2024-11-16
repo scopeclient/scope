@@ -1,0 +1,8 @@
+[package]
+name = "scope-chat"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+gpui = { git = "https://github.com/zed-industries/zed.git", version = "0.1.0" }
+tokio = "1.41.1"
