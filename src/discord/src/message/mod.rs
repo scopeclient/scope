@@ -5,8 +5,8 @@ use scope_chat::message::Message;
 
 use crate::snowflake::Snowflake;
 
-pub mod content;
 pub mod author;
+pub mod content;
 
 #[derive(Clone)]
 pub struct DiscordMessage {
@@ -28,4 +28,3 @@ impl Message for DiscordMessage {
     self.id.to_string()
   }
 }
-

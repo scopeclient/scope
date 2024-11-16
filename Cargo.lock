@@ -4280,6 +4280,7 @@ dependencies = [
  "reqwest_client",
  "scope-backend-discord",
  "scope-chat",
+ "scope-util",
  "tokio",
 ]
 
@@ -4300,6 +4301,10 @@ dependencies = [
  "gpui",
  "tokio",
 ]
+
+[[package]]
+name = "scope-util"
+version = "0.1.0"
 
 [[package]]
 name = "scoped-tls"
