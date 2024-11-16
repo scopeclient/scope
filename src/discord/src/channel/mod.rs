@@ -3,7 +3,15 @@ use std::sync::Arc;
 use scope_chat::channel::Channel;
 use tokio::sync::{broadcast, RwLock};
 
-use crate::{client::DiscordClient, message::{author::{DiscordMessageAuthor, DisplayName}, content::DiscordMessageContent, DiscordMessage}, snowflake::Snowflake};
+use crate::{
+  client::DiscordClient,
+  message::{
+    author::{DiscordMessageAuthor, DisplayName},
+    content::DiscordMessageContent,
+    DiscordMessage,
+  },
+  snowflake::Snowflake,
+};
 
 pub struct DiscordChannel {
   channel_id: Snowflake,
@@ -44,7 +52,10 @@ impl Channel for DiscordChannel {
 
     DiscordMessage {
       content: DiscordMessageContent { content, is_pending: true },
-      author: DiscordMessageAuthor { display_name: DisplayName("Pending".to_owned()), icon: "".to_owned() },
+      author: DiscordMessageAuthor {
+        display_name: DisplayName("Pending".to_owned()),
+        icon: "".to_owned(),
+      },
       id: Snowflake { content: 0 },
       nonce: Some(nonce),
     }

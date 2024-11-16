@@ -4,7 +4,10 @@ pub mod message_list;
 use std::ops::Deref;
 
 use components::input::{InputEvent, TextInput};
-use gpui::{div, list, rgb, AppContext, Context, IntoElement, ListAlignment, ListState, Model, ParentElement, Pixels, Render, SharedString, Styled, View, VisualContext};
+use gpui::{
+  div, list, rgb, AppContext, Context, IntoElement, ListAlignment, ListState, Model, ParentElement, Pixels, Render, SharedString, Styled, View,
+  VisualContext,
+};
 use message::message;
 use message_list::MessageList;
 use scope_backend_discord::message::DiscordMessage;
@@ -29,30 +32,35 @@ impl<M: Message + 'static> ChannelView<M> {
         .foreground_executor()
         .spawn(async move {
           loop {
-            let message = channel.get_receiver().recv().await.unwrap();
+            let message = channel_listener.get_receiver().recv().await.unwrap();
 
-          async_model.update(&mut async_ctx, |data, ctx| {
-            data.add_external_message(message);
-            ctx.notify();
-          }).unwrap();
-        }
-      }).detach();
+            async_model
+              .update(&mut async_ctx, |data, ctx| {
+                data.add_external_message(message);
+                ctx.notify();
+              })
+              .unwrap();
+          }
+        })
+        .detach();
 
-      ctx.observe(&state_model, |this: &mut ChannelView<M>, model, cx| {
-        this.list_state = model.read(cx).create_list_state();
-        cx.notify();
-      }).detach();
+      ctx
+        .observe(&state_model, |this: &mut ChannelView<M>, model, cx| {
+          this.list_state = model.read(cx).create_list_state();
+          cx.notify();
+        })
+        .detach();
 
       let message_input = ctx.new_view(|cx| {
         let mut input = components::input::TextInput::new(cx);
-  
+
         input.set_size(components::Size::Large, cx);
-  
+
         input
       });
 
-      ctx.subscribe(&message_input, move |channel_view, text_input, input_event, ctx| {
-        match input_event {
+      ctx
+        .subscribe(&message_input, move |channel_view, text_input, input_event, ctx| match input_event {
           InputEvent::PressEnter => {
             let content = text_input.read(ctx).text().to_string();
             let channel_sender = channel.clone();
@@ -69,9 +77,9 @@ impl<M: Message + 'static> ChannelView<M> {
             });
           }
           _ => {}
-        }
-      }).detach();  
-  
+        })
+        .detach();
+
       ChannelView::<M> {
         list_state: state_model.read(ctx).create_list_state(),
         list_model: state_model,
@@ -85,12 +93,6 @@ impl<M: Message + 'static> ChannelView<M> {
 
 impl<M: Message + 'static> Render for ChannelView<M> {
   fn render(&mut self, cx: &mut gpui::ViewContext<Self>) -> impl gpui::IntoElement {
-    div()
-      .flex()
-      .flex_col()
-      .w_full()
-      .h_full()
-      .child(list(self.list_state.clone()).w_full().h_full())
-      .child(self.message_input.clone())
+    div().flex().flex_col().w_full().h_full().child(list(self.list_state.clone()).w_full().h_full()).child(self.message_input.clone())
   }
 }

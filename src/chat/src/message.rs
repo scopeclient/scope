@@ -1,4 +1,4 @@
-use gpui::{Element};
+use gpui::Element;
 
 pub trait Message: Clone {
   fn get_author(&self) -> &impl MessageAuthor;

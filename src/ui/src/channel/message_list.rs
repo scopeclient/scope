@@ -1,4 +1,4 @@
-use gpui::{ListState, Pixels};
+use gpui::{div, IntoElement, ListAlignment, ListState, ParentElement, Pixels};
 use scope_backend_discord::{
   message::{
     author::{DiscordMessageAuthor, DisplayName},
@@ -46,14 +46,9 @@ impl<M: Message> MessageList<M> {
   pub fn create_list_state(&self) -> ListState {
     let clone = self.clone();
 
-    ListState::new(
-      clone.length(),
-      ListAlignment::Bottom,
-      Pixels(20.),
-      move |idx, _cx| {
-        let item = clone.get(idx).unwrap().clone();
-        div().child(message(item)).into_any_element()
-      },
-    )
+    ListState::new(clone.length(), ListAlignment::Bottom, Pixels(20.), move |idx, _cx| {
+      let item = clone.get(idx).unwrap().clone();
+      div().child(message(item)).into_any_element()
+    })
   }
 }
