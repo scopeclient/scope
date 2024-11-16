@@ -1,15 +1,12 @@
 use std::sync::Arc;
 
 use scope_chat::channel::Channel;
-use tokio::sync::{broadcast, RwLock};
+use serenity::all::Timestamp;
+use tokio::sync::broadcast;
 
 use crate::{
   client::DiscordClient,
-  message::{
-    author::{DiscordMessageAuthor, DisplayName},
-    content::DiscordMessageContent,
-    DiscordMessage,
-  },
+  message::{content::DiscordMessageContent, DiscordMessage},
   snowflake::Snowflake,
 };
 
@@ -55,6 +52,7 @@ impl Channel for DiscordChannel {
       author: self.client.user().clone(),
       id: Snowflake { content: 0 },
       nonce: Some(nonce),
+      creation_time: Timestamp::now(),
     }
   }
 }
@@ -62,7 +60,7 @@ impl Channel for DiscordChannel {
 impl Clone for DiscordChannel {
   fn clone(&self) -> Self {
     Self {
-      channel_id: self.channel_id.clone(),
+      channel_id: self.channel_id,
       receiver: self.receiver.resubscribe(),
       client: self.client.clone(),
     }

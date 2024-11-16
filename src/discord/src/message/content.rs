@@ -1,4 +1,4 @@
-use gpui::{div, IntoElement, ParentElement, Render, RenderOnce, Styled, WindowContext};
+use gpui::{div, IntoElement, ParentElement, RenderOnce, Styled, WindowContext};
 
 #[derive(Clone, IntoElement)]
 pub struct DiscordMessageContent {

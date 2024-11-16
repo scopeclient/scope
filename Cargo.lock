@@ -5438,6 +5438,7 @@ dependencies = [
  "log",
  "random-string",
  "reqwest_client",
+ "rust-embed",
  "scope-backend-discord",
  "scope-chat",
  "scope-util",
