@@ -1,7 +1,9 @@
+use tokio::sync::broadcast;
+
 use crate::message::Message;
 
 pub trait Channel {
   type Message: Message;
 
-  fn add_message_listener(&mut self, func: fn (Self::Message) -> ());
+  fn get_receiver(&self) -> broadcast::Receiver<Self::Message>;
 }

@@ -1,11 +1,12 @@
-use gpui::{IntoElement, Render};
+use gpui::{IntoElement, Render, RenderOnce, WindowContext};
 
+#[derive(Clone, IntoElement)]
 pub struct DiscordMessageContent {
-  content: String,
+  pub content: String,
 }
 
-impl Render for DiscordMessageContent {
-  fn render(&mut self, _: &mut gpui::ViewContext<Self>) -> impl IntoElement {
+impl RenderOnce for DiscordMessageContent {
+  fn render(self, _: &mut WindowContext) -> impl IntoElement {
     self.content.clone()
   }
 }

@@ -1,5 +1,6 @@
 use author::DiscordMessageAuthor;
 use content::DiscordMessageContent;
+use gpui::{Element, IntoElement};
 use scope_chat::message::Message;
 
 use crate::snowflake::Snowflake;
@@ -7,10 +8,11 @@ use crate::snowflake::Snowflake;
 pub mod content;
 pub mod author;
 
-struct DiscordMessage {
-  content: DiscordMessageContent,
-  author: DiscordMessageAuthor,
-  id: Snowflake,
+#[derive(Clone)]
+pub struct DiscordMessage {
+  pub content: DiscordMessageContent,
+  pub author: DiscordMessageAuthor,
+  pub id: Snowflake,
 }
 
 impl Message for DiscordMessage {
@@ -18,8 +20,8 @@ impl Message for DiscordMessage {
     &self.author
   }
 
-  fn get_content(&self) -> &impl gpui::Render {
-    &self.content
+  fn get_content(&self) -> impl Element {
+    self.content.clone().into_element()
   }
 
   fn get_identifier(&self) -> String {

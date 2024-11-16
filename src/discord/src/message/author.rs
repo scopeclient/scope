@@ -1,14 +1,15 @@
-use gpui::Render;
+use gpui::{div, Element, IntoElement, ParentElement, RenderOnce, Styled, WindowContext};
 use scope_chat::message::MessageAuthor;
 
+#[derive(Clone)]
 pub struct DiscordMessageAuthor {
-  display_name: DisplayName,
-  icon: String,
+  pub display_name: DisplayName,
+  pub icon: String,
 }
 
 impl MessageAuthor for DiscordMessageAuthor {
-  fn get_display_name(&self) -> &impl gpui::Render {
-    &self.display_name
+  fn get_display_name(&self) -> impl Element {
+    self.display_name.clone().into_element()
   }
 
   fn get_icon(&self) -> String {
@@ -16,10 +17,11 @@ impl MessageAuthor for DiscordMessageAuthor {
   }
 }
 
-struct DisplayName(String);
+#[derive(Clone, IntoElement)]
+pub struct DisplayName(pub String);
 
-impl Render for DisplayName {
-  fn render(&mut self, cx: &mut gpui::ViewContext<Self>) -> impl gpui::IntoElement {
-    self.0.clone()
+impl RenderOnce for DisplayName {
+  fn render(self, _: &mut WindowContext) -> impl IntoElement {
+    div().text_sm().child(self.0)
   }
 }
