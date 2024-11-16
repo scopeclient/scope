@@ -11,8 +11,8 @@ impl<M: Message> MessageGroup<M> {
     MessageGroup { contents: vec![message] }
   }
 
-  pub fn get_author<'s>(&'s self) -> &'s (impl MessageAuthor + 's) {
-    self.contents.get(0).unwrap().get_author()
+  pub fn get_author(&self) -> &(impl MessageAuthor + '_) {
+    self.contents.first().unwrap().get_author()
   }
 
   pub fn add(&mut self, message: M) {
@@ -24,7 +24,7 @@ impl<M: Message> MessageGroup<M> {
     self.contents.push(message);
   }
 
-  pub fn contents<'s>(&'s self) -> impl IntoIterator<Item = impl Element + 's> {
+  pub fn contents(&self) -> impl IntoIterator<Item = impl Element + '_> {
     self.contents.iter().map(|v| v.get_content())
   }
 
@@ -35,7 +35,7 @@ impl<M: Message> MessageGroup<M> {
       }
     }
 
-    return None;
+    None
   }
 
   pub fn size(&self) -> usize {
