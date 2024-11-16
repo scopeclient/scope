@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use scope_chat::channel::Channel;
+use scope_chat::{
+  async_list::{AsyncList, AsyncListIndex, AsyncListItem},
+  channel::Channel,
+};
 use serenity::all::Timestamp;
 use tokio::sync::broadcast;
 
@@ -55,6 +58,26 @@ impl Channel for DiscordChannel {
       creation_time: Timestamp::now(),
     }
   }
+}
+
+impl AsyncList for DiscordChannel {
+  async fn bounded_at_bottom_by(&self) -> Option<<Self::Content as AsyncListItem>::Identifier> {
+    unimplemented!()
+  }
+
+  async fn bounded_at_top_by(&self) -> Option<<Self::Content as AsyncListItem>::Identifier> {
+    unimplemented!()
+  }
+
+  async fn find(&self, identifier: &<Self::Content as AsyncListItem>::Identifier) -> Option<Self::Content> {
+    unimplemented!()
+  }
+
+  async fn get(&self, index: AsyncListIndex<<Self::Content as AsyncListItem>::Identifier>) -> Option<Self::Content> {
+    unimplemented!()
+  }
+
+  type Content = DiscordMessage;
 }
 
 impl Clone for DiscordChannel {

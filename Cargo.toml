@@ -1,8 +1,6 @@
 [workspace]
 resolver = "2"
-members = [
-  "src/ui"
-]
+members = ["src/ui", "src/cache", "src/chat", "src/discord"]
 
 [workspace.dependencies]
 chrono = "0.4.38"

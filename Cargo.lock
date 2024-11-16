@@ -5448,6 +5448,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "scope-backend-cache"
+version = "0.1.0"
+dependencies = [
+ "gpui",
+ "scope-chat",
+ "tokio",
+]
+
+[[package]]
 name = "scope-backend-discord"
 version = "0.1.0"
 dependencies = [

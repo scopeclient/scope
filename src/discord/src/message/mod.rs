@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use author::DiscordMessageAuthor;
 use content::DiscordMessageContent;
 use gpui::{Element, IntoElement};
-use scope_chat::message::Message;
+use scope_chat::{async_list::AsyncListItem, message::Message};
 
 use crate::snowflake::Snowflake;
 
@@ -46,4 +46,8 @@ impl Message for DiscordMessage {
 
     DateTime::from_timestamp_millis(ts)
   }
+}
+
+impl AsyncListItem for DiscordMessage {
+  type Identifier = String;
 }

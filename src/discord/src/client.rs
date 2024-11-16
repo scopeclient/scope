@@ -8,9 +8,13 @@ use serenity::{
 use tokio::sync::{broadcast, RwLock};
 
 use crate::{
+  channel::DiscordChannel,
   message::{
-    author::{DiscordMessageAuthor, DisplayName}, content::DiscordMessageContent, DiscordMessage
-  }, snowflake::Snowflake
+    author::{DiscordMessageAuthor, DisplayName},
+    content::DiscordMessageContent,
+    DiscordMessage,
+  },
+  snowflake::{self, Snowflake},
 };
 
 #[allow(dead_code)]
@@ -26,6 +30,7 @@ pub struct DiscordClient {
   channel_message_event_handlers: RwLock<HashMap<Snowflake, Vec<broadcast::Sender<DiscordMessage>>>>,
   client: OnceLock<SerenityClient>,
   user: OnceLock<DiscordMessageAuthor>,
+  channels: RwLock<HashMap<Snowflake, Arc<DiscordChannel>>>,
 }
 
 impl DiscordClient {
@@ -63,6 +68,22 @@ impl DiscordClient {
 
   pub async fn add_channel_message_sender(&self, channel: Snowflake, sender: broadcast::Sender<DiscordMessage>) {
     self.channel_message_event_handlers.write().await.entry(channel).or_default().push(sender);
+  }
+
+  pub async fn channel(self: Arc<Self>, channel_id: Snowflake) -> Arc<DiscordChannel> {
+    let self_clone = self.clone();
+    let mut channels = self_clone.channels.write().await;
+    let existing = channels.get(&channel_id);
+
+    if let Some(existing) = existing {
+      return existing.clone();
+    }
+
+    let new = Arc::new(DiscordChannel::new(self, channel_id).await);
+
+    channels.insert(channel_id, new.clone());
+
+    new
   }
 
   pub async fn send_message(&self, channel_id: Snowflake, content: String, nonce: String) {
