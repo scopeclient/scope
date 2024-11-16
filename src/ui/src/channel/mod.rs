@@ -66,8 +66,6 @@ impl<M: Message + 'static> ChannelView<M> {
 
 impl<M: Message + 'static> Render for ChannelView<M> {
   fn render(&mut self, cx: &mut gpui::ViewContext<Self>) -> impl gpui::IntoElement {
-    println!("Render Called");
-
     div()
       .flex()
       .flex_col()
