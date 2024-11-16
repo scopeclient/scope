@@ -88,6 +88,6 @@ impl<M: Message + 'static> ChannelView<M> {
 
 impl<M: Message + 'static> Render for ChannelView<M> {
   fn render(&mut self, _: &mut gpui::ViewContext<Self>) -> impl gpui::IntoElement {
-    div().flex().flex_col().w_full().h_full().child(list(self.list_state.clone()).w_full().h_full()).child(self.message_input.clone())
+    div().flex().flex_col().w_full().h_full().p_6().gap_6().child(list(self.list_state.clone()).w_full().h_full()).child(self.message_input.clone())
   }
 }
