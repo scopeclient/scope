@@ -72,7 +72,7 @@ struct RawClient(Arc<DiscordClient>);
 impl RawEventHandler for RawClient {
   async fn raw_event(&self, ctx: Context, ev: serenity::model::prelude::Event) {
     if let Event::Unknown(unk) = ev {
-      writeln!(&mut File::create(unk.kind).unwrap(), "{:#?}", unk.value);
+      // writeln!(&mut File::create(unk.kind).unwrap(), "{:#?}", unk.value);
     }
   }
 }
