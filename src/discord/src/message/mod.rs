@@ -13,6 +13,7 @@ pub struct DiscordMessage {
   pub content: DiscordMessageContent,
   pub author: DiscordMessageAuthor,
   pub id: Snowflake,
+  pub nonce: Option<String>,
 }
 
 impl Message for DiscordMessage {
@@ -26,5 +27,9 @@ impl Message for DiscordMessage {
 
   fn get_identifier(&self) -> String {
     self.id.to_string()
+  }
+
+  fn get_nonce(&self) -> Option<&String> {
+    self.nonce.as_ref()
   }
 }

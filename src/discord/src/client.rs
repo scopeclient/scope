@@ -1,10 +1,16 @@
-use std::{collections::HashMap, rc::Rc, sync::Arc};
+use std::{
+  collections::HashMap,
+  fs::File,
+  rc::Rc,
+  sync::{Arc, OnceLock},
+};
 
 use serenity::{
-  all::{Context, EventHandler, GatewayIntents, Message},
+  all::{ChannelId, Context, CreateMessage, Event, EventHandler, GatewayIntents, Message, Nonce, RawEventHandler},
   async_trait,
   futures::SinkExt,
 };
+use std::io::Write;
 use tokio::sync::{broadcast, Mutex, RwLock};
 
 use crate::{
@@ -18,49 +24,84 @@ use crate::{
 
 #[derive(Default)]
 pub struct DiscordClient {
-  channel_message_event_handlers: HashMap<Snowflake, Vec<broadcast::Sender<DiscordMessage>>>,
+  channel_message_event_handlers: RwLock<HashMap<Snowflake, Vec<broadcast::Sender<DiscordMessage>>>>,
+  client: OnceLock<serenity::Client>,
+  user: OnceLock<DiscordMessageAuthor>,
 }
 
 impl DiscordClient {
-  pub fn new(token: String) -> Arc<RwLock<DiscordClient>> {
-    let client = Arc::new(RwLock::new(DiscordClient::default()));
-    let remote = RemoteDiscordClient(client.clone());
+  pub async fn new(token: String) -> Arc<DiscordClient> {
+    let client = Arc::new(DiscordClient::default());
 
-    tokio::spawn(async {
-      let mut client = serenity::Client::builder(token, GatewayIntents::all()).event_handler(remote).await.expect("Error creating client");
+    let mut discord = serenity::Client::builder(token, GatewayIntents::all())
+      .event_handler_arc(client.clone())
+      .raw_event_handler(RawClient(client.clone()))
+      .await
+      .expect("Error creating client");
 
-      if let Err(why) = client.start().await {
-        panic!("Client error: {why:?}");
-      }
-    });
+    if let Err(why) = discord.start().await {
+      panic!("Client error: {why:?}");
+    }
+
+    let _ = client.client.set(discord);
 
     client
   }
 
-  pub async fn add_channel_message_sender(&mut self, channel: Snowflake, sender: broadcast::Sender<DiscordMessage>) {
-    self.channel_message_event_handlers.entry(channel).or_default().push(sender);
+  fn discord(&self) -> &serenity::Client {
+    self.client.get().unwrap()
+  }
+
+  pub fn user(&self) -> &DiscordMessageAuthor {
+    self.user.get().unwrap()
+  }
+
+  pub async fn add_channel_message_sender(&self, channel: Snowflake, sender: broadcast::Sender<DiscordMessage>) {
+    self.channel_message_event_handlers.write().await.entry(channel).or_default().push(sender);
+  }
+
+  pub async fn send_message(&self, channel_id: Snowflake, content: String, nonce: String) {
+    ChannelId::new(channel_id.content)
+      .send_message(
+        self.discord().http.clone(),
+        CreateMessage::new().content(content).enforce_nonce(true).nonce(serenity::all::Nonce::String(nonce)),
+      )
+      .await
+      .unwrap();
   }
 }
 
-struct RemoteDiscordClient(Arc<RwLock<DiscordClient>>);
+struct RawClient(Arc<DiscordClient>);
 
 #[async_trait]
-impl EventHandler for RemoteDiscordClient {
-  async fn ready(&self, ctx: Context, data_about_bot: serenity::model::prelude::Ready) {
-    println!("Ready! {:?}", data_about_bot);
+impl RawEventHandler for RawClient {
+  async fn raw_event(&self, ctx: Context, ev: serenity::model::prelude::Event) {
+    if let Event::Unknown(unk) = ev {
+      if unk.kind == "READY" {
+        let user = unk.value.as_object().unwrap().get("user").unwrap().as_object().unwrap();
+
+        self.0.user.get_or_init(|| DiscordMessageAuthor {
+          display_name: DisplayName(user.get("username").unwrap().as_str().unwrap().to_owned()),
+          icon: format!(
+            "https://cdn.discordapp.com/avatars/{}/{}",
+            user.get("id").unwrap().as_str().unwrap(),
+            user.get("avatar").unwrap().as_str().unwrap()
+          ),
+        });
+      }
+    }
   }
+}
 
+#[async_trait]
+impl EventHandler for DiscordClient {
   async fn message(&self, _: Context, msg: Message) {
-    println!("Got message: {:?} {:?}", msg.channel_id, msg.content);
-
     let snowflake = Snowflake {
       content: msg.channel_id.get(),
     };
 
-    if let Some(vec) = self.0.read().await.channel_message_event_handlers.get(&snowflake) {
+    if let Some(vec) = self.channel_message_event_handlers.read().await.get(&snowflake) {
       for sender in vec {
-        println!("Sending to sender!");
-
         let _ = sender.send(DiscordMessage {
           id: snowflake,
           author: DiscordMessageAuthor {
@@ -69,7 +110,12 @@ impl EventHandler for RemoteDiscordClient {
           },
           content: DiscordMessageContent {
             content: msg.content.clone(),
+            is_pending: false,
           },
+          nonce: msg.nonce.clone().map(|n| match n {
+            Nonce::Number(n) => n.to_string(),
+            Nonce::String(s) => s,
+          }),
         });
       }
     }
