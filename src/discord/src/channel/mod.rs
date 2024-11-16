@@ -60,7 +60,7 @@ impl Channel for DiscordChannel {
 impl Clone for DiscordChannel {
   fn clone(&self) -> Self {
     Self {
-      channel_id: self.channel_id.clone(),
+      channel_id: self.channel_id,
       receiver: self.receiver.resubscribe(),
       client: self.client.clone(),
     }

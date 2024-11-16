@@ -37,6 +37,6 @@ impl Message for DiscordMessage {
   fn should_group(&self, previous: &Self) -> bool {
     const MAX_DISCORD_MESSAGE_GAP_SECS_FOR_GROUP: i64 = 5 * 60;
 
-    self.creation_time.signed_duration_since(&*previous.creation_time).num_seconds() <= MAX_DISCORD_MESSAGE_GAP_SECS_FOR_GROUP
+    self.creation_time.signed_duration_since(*previous.creation_time).num_seconds() <= MAX_DISCORD_MESSAGE_GAP_SECS_FOR_GROUP
   }
 }

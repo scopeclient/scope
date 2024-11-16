@@ -2,7 +2,7 @@ pub mod app;
 pub mod app_state;
 pub mod channel;
 
-use std::{fs, path::PathBuf, sync::Arc};
+use std::sync::Arc;
 
 use app_state::AppState;
 use components::theme::Theme;
@@ -59,6 +59,6 @@ async fn main() {
       ..Default::default()
     };
 
-    cx.open_window(opts, |cx| cx.new_view(|cx| crate::app::App::new(cx))).unwrap();
+    cx.open_window(opts, |cx| cx.new_view(crate::app::App::new)).unwrap();
   });
 }

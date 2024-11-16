@@ -52,8 +52,8 @@ impl<M: Message + 'static> ChannelView<M> {
     });
 
     ctx
-      .subscribe(&message_input, move |channel_view, text_input, input_event, ctx| match input_event {
-        InputEvent::PressEnter => {
+      .subscribe(&message_input, move |channel_view, text_input, input_event, ctx| {
+        if let InputEvent::PressEnter = input_event {
           let content = text_input.read(ctx).text().to_string();
           let channel_sender = channel.clone();
 
@@ -70,7 +70,6 @@ impl<M: Message + 'static> ChannelView<M> {
           channel_view.list_state = channel_view.list_model.read(ctx).create_list_state();
           ctx.notify();
         }
-        _ => {}
       })
       .detach();
 

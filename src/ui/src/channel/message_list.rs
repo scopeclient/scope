@@ -9,6 +9,12 @@ pub struct MessageList<M: Message + 'static> {
   messages: Vec<MessageGroup<M>>,
 }
 
+impl<M: Message> Default for MessageList<M> {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl<M: Message> MessageList<M> {
   pub fn new() -> MessageList<M> {
     Self { messages: Vec::default() }
@@ -37,24 +43,24 @@ impl<M: Message> MessageList<M> {
 
     let last = self.messages.last_mut();
 
-    if last.is_some()
-      && last.as_ref().unwrap().get_author().get_id() == message.get_author().get_id()
-      && message.should_group(last.as_ref().unwrap().last())
-    {
-      last.unwrap().add(message);
+    if let Some(last_group) = last {
+      if last_group.get_author().get_id() == message.get_author().get_id() && message.should_group(last_group.last()) {
+        last_group.add(message);
+      } else {
+        self.messages.push(MessageGroup::new(message));
+      }
     } else {
       self.messages.push(MessageGroup::new(message));
     }
   }
 
   pub fn add_pending_message(&mut self, pending_message: M) {
-    let last = self.messages.last_mut();
-
-    if last.is_some()
-      && last.as_ref().unwrap().get_author().get_id() == pending_message.get_author().get_id()
-      && pending_message.should_group(last.as_ref().unwrap().last())
-    {
-      last.unwrap().add(pending_message);
+    if let Some(last) = self.messages.last_mut() {
+      if last.get_author().get_id() == pending_message.get_author().get_id() && pending_message.should_group(last.last()) {
+        last.add(pending_message);
+      } else {
+        self.messages.push(MessageGroup::new(pending_message));
+      }
     } else {
       self.messages.push(MessageGroup::new(pending_message));
     }
