@@ -114,6 +114,7 @@ impl EventHandler for DiscordClient {
             Nonce::Number(n) => n.to_string(),
             Nonce::String(s) => s,
           }),
+          creation_time: msg.timestamp,
         });
       }
     }

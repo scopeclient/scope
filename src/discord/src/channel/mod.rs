@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use scope_chat::channel::Channel;
+use serenity::all::Timestamp;
 use tokio::sync::broadcast;
 
 use crate::{
@@ -51,6 +52,7 @@ impl Channel for DiscordChannel {
       author: self.client.user().clone(),
       id: Snowflake { content: 0 },
       nonce: Some(nonce),
+      creation_time: Timestamp::now(),
     }
   }
 }

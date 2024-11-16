@@ -49,6 +49,10 @@ impl<M: Message> MessageGroup<M> {
 
     self.contents.remove(index);
   }
+
+  pub fn last(&self) -> &M {
+    self.contents.last().unwrap()
+  }
 }
 
 pub fn message<M: Message>(message: MessageGroup<M>) -> impl IntoElement {
