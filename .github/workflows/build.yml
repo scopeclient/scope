@@ -17,19 +17,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  get-version:
-    name: Get Version
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.get_version.outputs.version }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Get Version
-        id: get_version
-        run: echo "version=$(grep '^version = ' src/ui/Cargo.toml | cut -d '"' -f2)" >> $GITHUB_OUTPUT
-
   build-linux:
-    needs: get-version
     name: Build Linux
     runs-on: ubuntu-latest
     steps:
@@ -93,7 +81,6 @@ jobs:
           path: Scope-${{ needs.get-version.outputs.version }}.AppImage
 
   build-windows:
-    needs: get-version
     name: Build Windows
     runs-on: windows-latest
     steps:
@@ -174,7 +161,6 @@ jobs:
           path: Scope-${{ needs.get-version.outputs.version }}.msi
 
   build-macos-intel:
-    needs: get-version
     name: Build macOS (Intel)
     runs-on: macos-latest
     steps:
@@ -246,7 +232,6 @@ jobs:
           path: Scope-${{ needs.get-version.outputs.version }}_intel.dmg
 
   build-macos-silicon:
-    needs: get-version
     name: Build macOS (Silicon)
     runs-on: macos-latest
     steps:
