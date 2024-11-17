@@ -45,7 +45,7 @@ The Discord client for power users.
 2. Run `cargo run`
    - It's recommended to use `cargo watch -- cargo run` from [cargo-watch](https://github.com/watchexec/cargo-watch), but it's optional
 
-### Environment
+## Environment Variables
 
 The binary requires the following environment variables to be set in the current working directory or in a `.env` file:
 
