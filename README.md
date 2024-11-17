@@ -33,14 +33,7 @@ The Discord client for power users.
 2. Run `cargo build --release`
 3. The binary will be in `./target/release/scope`
 
-### Environment
-
-The binary presently requires the following environment variables to be set or in a `.env` file in the current working directory:
-
-- `DISCORD_TOKEN` - your discord token
-- `DEMO_CHANNEL_ID` - the channel ID to listen for messages on
-
-## Developing
+## Development Setup
 
 ### Prerequisites
 
@@ -54,7 +47,7 @@ The binary presently requires the following environment variables to be set or i
 
 ### Environment
 
-The binary presently requires the following environment variables to be set or in a `.env` file in the current working directory:
+The binary requires the following environment variables to be set in the current working directory or in a `.env` file:
 
-- `DISCORD_TOKEN` - your discord token
-- `DEMO_CHANNEL_ID` - the channel ID to listen for messages on
+- `DISCORD_TOKEN` - Your Discord token
+- `DEMO_CHANNEL_ID` - The channel ID to listen for messages on
