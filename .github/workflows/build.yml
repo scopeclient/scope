@@ -2,22 +2,34 @@ name: "Nightly Builds"
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
     inputs:
       ref:
-        description: 'Branch or tag to build'
+        description: "Branch or tag to build"
         required: true
-        default: 'main'
+        default: "main"
         type: string
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  get-version:
+    name: Get Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get Version
+        id: get_version
+        run: echo "version=$(grep '^version = ' src/ui/Cargo.toml | cut -d '"' -f2)" >> $GITHUB_OUTPUT
+
   build-linux:
+    needs: get-version
     name: Build Linux
     runs-on: ubuntu-latest
     steps:
@@ -59,15 +71,15 @@ jobs:
           Type=Application
           Categories=Development;
           EOF
-          
+
           # Copy icon
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps/
           cp .github/scope-round-200.png AppDir/usr/share/icons/hicolor/256x256/apps/scope.png
-          
+
           # Copy binary
           mkdir -p AppDir/usr/bin
           cp target/release/scope AppDir/usr/bin/
-          
+
           # Create AppImage
           wget -O linuxdeploy-x86_64.AppImage https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
@@ -81,6 +93,7 @@ jobs:
           path: Scope-${{ needs.get-version.outputs.version }}.AppImage
 
   build-windows:
+    needs: get-version
     name: Build Windows
     runs-on: windows-latest
     steps:
@@ -161,6 +174,7 @@ jobs:
           path: Scope-${{ needs.get-version.outputs.version }}.msi
 
   build-macos-intel:
+    needs: get-version
     name: Build macOS (Intel)
     runs-on: macos-latest
     steps:
@@ -191,7 +205,7 @@ jobs:
           mkdir -p Scope.app/Contents/{MacOS,Resources}
           cp target/x86_64-apple-darwin/release/scope Scope.app/Contents/MacOS/
           cp .github/scope-round-200.png Scope.app/Contents/Resources/scope.icns
-          
+
           cat > Scope.app/Contents/Info.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -232,6 +246,7 @@ jobs:
           path: Scope-${{ needs.get-version.outputs.version }}_intel.dmg
 
   build-macos-silicon:
+    needs: get-version
     name: Build macOS (Silicon)
     runs-on: macos-latest
     steps:
@@ -262,7 +277,7 @@ jobs:
           mkdir -p Scope.app/Contents/{MacOS,Resources}
           cp target/aarch64-apple-darwin/release/scope Scope.app/Contents/MacOS/
           cp .github/scope-round-200.png Scope.app/Contents/Resources/scope.icns
-          
+
           cat > Scope.app/Contents/Info.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
