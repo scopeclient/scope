@@ -8,5 +8,6 @@ gpui = { git = "https://github.com/huacnlee/zed.git", branch = "export-platform-
   "http_client",
   "font-kit",
 ] }
+rand = "0.8.5"
 scope-chat = { version = "0.1.0", path = "../chat" }
 tokio = "1.41.1"

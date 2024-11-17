@@ -11,6 +11,8 @@ pub trait AsyncList {
 
 pub trait AsyncListItem: Clone {
   type Identifier: Eq + Hash + Clone;
+
+  fn get_list_identifier(&self) -> Self::Identifier;
 }
 
 #[derive(Clone)]

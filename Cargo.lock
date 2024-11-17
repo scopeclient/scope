@@ -5452,6 +5452,7 @@ name = "scope-backend-cache"
 version = "0.1.0"
 dependencies = [
  "gpui",
+ "rand 0.8.5",
  "scope-chat",
  "tokio",
 ]
