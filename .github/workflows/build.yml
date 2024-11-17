@@ -2,9 +2,9 @@ name: "Nightly Builds"
 
 on:
   push:
-    branches: [ nightly ]
+    branches: [ main ]
   pull_request:
-    branches: [ nightly ]
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       ref:
