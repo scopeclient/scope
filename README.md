@@ -3,7 +3,7 @@
 <img width="128px" src="./.github/scope-round-200.png" />
 <h1><b>Scope</b></h1>
 
-The discord client for power users.
+The Discord client for power users.
 <br>
 <a href="https://www.scopeclient.com/"><strong>scopeclient.com »</strong></a>
 
@@ -15,13 +15,13 @@ The discord client for power users.
   </tbody>
 </table>
 
-<sup>Nightly releases can be found <a href="https://github.com/scopeclient/scope/actions/workflows/build.yml">here</a> </sup>
+<sup>Nightly releases can be found <a href="https://github.com/scopeclient/scope/actions/workflows/build.yml">here</a>. </sup>
 
 </div>
 
-###### Scope is in its earliest stages of development. This readme will be fleshed out as the project progresses
+###### Scope is in its earliest stages of development. This README will be fleshed out as the project progresses.
 
-## Building
+## Building the Project
 
 ### Prerequisites
 
@@ -50,7 +50,7 @@ The binary presently requires the following environment variables to be set or i
 
 1. Clone the repository
 2. Run `cargo run`
-   - It's reccomended to use `cargo watch -- cargo run` from [cargo-watch](https://github.com/watchexec/cargo-watch), but it's in no way required
+   - It's recommended to use `cargo watch -- cargo run` from [cargo-watch](https://github.com/watchexec/cargo-watch), but it's optional
 
 ### Environment
 
