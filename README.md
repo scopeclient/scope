@@ -1,7 +1,7 @@
 <div align="center">
 <img src="./.github/scope-round-200.png" />
 <h1>Scope</h1>
-<h2>discord client for power users</h2>
+<h2>Discord client for power users</h2>
 <a href="https://www.scopeclient.com/">scopeclient.com</a>
 </div>
 
@@ -21,8 +21,8 @@
 
 ### Environment
 The binary presently requires the following environment variables to be set or in a `.env` file in the current working directory:
-- `DISCORD_TOKEN` - your discord token
-- `DEMO_CHANNEL_ID` - the channel ID to listen for messages on
+- `DISCORD_TOKEN` - Your discord token
+- `DEMO_CHANNEL_ID` - The channel ID to listen for messages on
 
 ## Developing
 
@@ -34,9 +34,9 @@ The binary presently requires the following environment variables to be set or i
 
 1. Clone the repository
 2. Run `cargo run`
-   - It's reccomended to use `cargo watch -- cargo run` from [cargo-watch](https://github.com/watchexec/cargo-watch), but it's in no way required
+   - It's recommended to use `cargo watch -- cargo run` from [cargo-watch](https://github.com/watchexec/cargo-watch), but it's in no way required
 
 ### Environment
 The binary presently requires the following environment variables to be set or in a `.env` file in the current working directory:
-- `DISCORD_TOKEN` - your discord token
-- `DEMO_CHANNEL_ID` - the channel ID to listen for messages on
+- `DISCORD_TOKEN` - Your discord token
+- `DEMO_CHANNEL_ID` - The channel ID to listen for messages on
