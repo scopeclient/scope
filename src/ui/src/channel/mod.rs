@@ -55,6 +55,9 @@ impl<M: Message + 'static> ChannelView<M> {
       .subscribe(&message_input, move |channel_view, text_input, input_event, ctx| {
         if let InputEvent::PressEnter = input_event {
           let content = text_input.read(ctx).text().to_string();
+          if content.is_empty() {
+            return;
+          }
           let channel_sender = channel.clone();
 
           text_input.update(ctx, |text_input, cx| {
