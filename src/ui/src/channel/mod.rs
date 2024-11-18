@@ -18,13 +18,13 @@ impl<M: Message + 'static> ChannelView<M> {
 
     let async_model = state_model.clone();
     let mut async_ctx = ctx.to_async();
-    let channel_listener = channel.clone();
+    let mut channel_listener = channel.get_receiver();
 
     ctx
       .foreground_executor()
       .spawn(async move {
         loop {
-          let message = channel_listener.get_receiver().recv().await.unwrap();
+          let message = channel_listener.recv().await.unwrap();
 
           async_model
             .update(&mut async_ctx, |data, ctx| {
@@ -65,7 +65,7 @@ impl<M: Message + 'static> ChannelView<M> {
           });
 
           let nonce = random_string::generate(20, random_string::charsets::ALPHANUMERIC);
-          let pending = channel_sender.send_message(content, nonce);
+          let pending = channel.send_message(content, nonce);
 
           channel_view.list_model.update(ctx, move |v, _| {
             v.add_pending_message(pending);

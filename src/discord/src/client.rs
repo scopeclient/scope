@@ -3,7 +3,8 @@ use std::{
 };
 
 use serenity::{
-  all::{Cache, ChannelId, Context, CreateMessage, Event, EventHandler, GatewayIntents, Http, Message, Nonce, RawEventHandler}, async_trait
+  all::{Cache, ChannelId, Context, CreateMessage, Event, EventHandler, GatewayIntents, GetMessages, Message, MessageId, Nonce, RawEventHandler},
+  async_trait,
 };
 use tokio::sync::{broadcast, RwLock};
 
@@ -14,7 +15,7 @@ use crate::{
     content::DiscordMessageContent,
     DiscordMessage,
   },
-  snowflake::{self, Snowflake},
+  snowflake::Snowflake,
 };
 
 #[allow(dead_code)]
@@ -95,6 +96,16 @@ impl DiscordClient {
       .await
       .unwrap();
   }
+
+  pub async fn get_messages(&self, channel_id: Snowflake, builder: GetMessages) -> Vec<Message> {
+    // FIXME: proper error handling
+    ChannelId::new(channel_id.content).messages(self.discord().http.clone(), builder).await.unwrap()
+  }
+
+  pub async fn get_specific_message(&self, channel_id: Snowflake, message_id: Snowflake) -> Option<Message> {
+    // FIXME: proper error handling
+    Some(ChannelId::new(channel_id.content).message(self.discord().http.clone(), MessageId::new(message_id.content)).await.unwrap())
+  }
 }
 
 struct RawClient(Arc<DiscordClient>);
@@ -140,23 +151,7 @@ impl EventHandler for DiscordClient {
 
     if let Some(vec) = self.channel_message_event_handlers.read().await.get(&snowflake) {
       for sender in vec {
-        let _ = sender.send(DiscordMessage {
-          id: snowflake,
-          author: DiscordMessageAuthor {
-            display_name: DisplayName(msg.author.name.clone()),
-            icon: msg.author.avatar_url().unwrap_or(msg.author.default_avatar_url()),
-            id: msg.author.id.to_string(),
-          },
-          content: DiscordMessageContent {
-            content: msg.content.clone(),
-            is_pending: false,
-          },
-          nonce: msg.nonce.clone().map(|n| match n {
-            Nonce::Number(n) => n.to_string(),
-            Nonce::String(s) => s,
-          }),
-          creation_time: msg.timestamp,
-        });
+        let _ = sender.send(DiscordMessage::from_serenity(&msg));
       }
     }
   }

@@ -3,7 +3,7 @@ use gpui::Element;
 
 use crate::async_list::AsyncListItem;
 
-pub trait Message: Clone + AsyncListItem {
+pub trait Message: Clone + AsyncListItem + Send {
   fn get_author(&self) -> &impl MessageAuthor;
   fn get_content(&self) -> impl Element;
   fn get_identifier(&self) -> String;

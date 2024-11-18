@@ -5440,6 +5440,7 @@ dependencies = [
  "random-string",
  "reqwest_client",
  "rust-embed",
+ "scope-backend-cache",
  "scope-backend-discord",
  "scope-chat",
  "scope-util",
@@ -5463,6 +5464,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "gpui",
+ "scope-backend-cache",
  "scope-chat",
  "serenity",
  "tokio",

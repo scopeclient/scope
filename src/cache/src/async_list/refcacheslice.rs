@@ -9,6 +9,12 @@ pub struct CacheReferencesSlice<I: Clone + Eq + PartialEq> {
   pub(super) item_references: Vec<I>,
 }
 
+pub enum Exists<T> {
+  Yes(T),
+  No,
+  Unknown,
+}
+
 impl<I: Clone + Eq + PartialEq> CacheReferencesSlice<I> {
   fn find_index_of(&self, item: I) -> Option<usize> {
     for (haystack, index) in self.item_references.iter().zip(0..) {
@@ -22,7 +28,7 @@ impl<I: Clone + Eq + PartialEq> CacheReferencesSlice<I> {
 
   fn get_index(&self, index: AsyncListIndex<I>) -> Option<isize> {
     match index {
-      AsyncListIndex::RelativeToBottom(count) if self.is_bounded_at_bottom => Some((self.item_references.len() as isize) - (count as isize)),
+      AsyncListIndex::RelativeToBottom(count) if self.is_bounded_at_bottom => Some((self.item_references.len() as isize) - (1 + (count as isize))),
 
       AsyncListIndex::RelativeToTop(count) if self.is_bounded_at_top => Some(count as isize),
 
@@ -34,14 +40,36 @@ impl<I: Clone + Eq + PartialEq> CacheReferencesSlice<I> {
     }
   }
 
-  pub fn get(&self, index: AsyncListIndex<I>) -> Option<I> {
-    let index = self.get_index(index)?;
+  pub fn append_bottom(&mut self, index: I) {
+    assert!(self.is_bounded_at_bottom);
 
-    if index < 0 {
-      return None;
+    self.item_references.push(index);
+  }
+
+  pub fn get(&self, index: AsyncListIndex<I>) -> Exists<I> {
+    let index = self.get_index(index);
+
+    if let Some(index) = index {
+      if index < 0 {
+        if self.is_bounded_at_top {
+          return Exists::No;
+        } else {
+          return Exists::Unknown;
+        }
+      }
+
+      if index as usize >= self.item_references.len() {
+        if self.is_bounded_at_bottom {
+          return Exists::No;
+        } else {
+          return Exists::Unknown;
+        }
+      }
+
+      Exists::Yes(self.item_references.get(index as usize).cloned().unwrap())
+    } else {
+      Exists::Unknown
     }
-
-    self.item_references.get(index as usize).cloned()
   }
 
   pub fn can_insert(&self, index: AsyncListIndex<I>) -> Option<Position> {
@@ -59,7 +87,14 @@ impl<I: Clone + Eq + PartialEq> CacheReferencesSlice<I> {
     }
   }
 
-  pub fn insert(&mut self, index: AsyncListIndex<I>, value: I) {
+  pub fn insert(&mut self, index: AsyncListIndex<I>, value: I, is_bottom: bool, is_top: bool) {
+    if is_bottom {
+      self.is_bounded_at_bottom = true
+    }
+    if is_top {
+      self.is_bounded_at_top = true
+    }
+
     match index {
       AsyncListIndex::After(item) => {
         let i = self.find_index_of(item).unwrap();
@@ -79,7 +114,9 @@ impl<I: Clone + Eq + PartialEq> CacheReferencesSlice<I> {
 
 #[derive(Clone, Copy)]
 pub enum Position {
+  /// Closer to the top
   Before,
-  Inside,
+  /// Closer to the bottom
   After,
+  Inside,
 }

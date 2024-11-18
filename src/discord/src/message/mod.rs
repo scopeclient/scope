@@ -1,8 +1,9 @@
+use author::{DiscordMessageAuthor, DisplayName};
 use chrono::{DateTime, Utc};
-use author::DiscordMessageAuthor;
 use content::DiscordMessageContent;
 use gpui::{Element, IntoElement};
 use scope_chat::{async_list::AsyncListItem, message::Message};
+use serenity::all::Nonce;
 
 use crate::snowflake::Snowflake;
 
@@ -16,6 +17,28 @@ pub struct DiscordMessage {
   pub id: Snowflake,
   pub nonce: Option<String>,
   pub creation_time: serenity::model::Timestamp,
+}
+
+impl DiscordMessage {
+  pub fn from_serenity(msg: &serenity::all::Message) -> Self {
+    DiscordMessage {
+      id: Snowflake { content: msg.id.get() },
+      author: DiscordMessageAuthor {
+        display_name: DisplayName(msg.author.name.clone()),
+        icon: msg.author.avatar_url().unwrap_or(msg.author.default_avatar_url()),
+        id: msg.author.id.to_string(),
+      },
+      content: DiscordMessageContent {
+        content: msg.content.clone(),
+        is_pending: false,
+      },
+      nonce: msg.nonce.clone().map(|n| match n {
+        Nonce::Number(n) => n.to_string(),
+        Nonce::String(s) => s,
+      }),
+      creation_time: msg.timestamp,
+    }
+  }
 }
 
 impl Message for DiscordMessage {
