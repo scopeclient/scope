@@ -16,7 +16,6 @@ set -e
 required_vars=("APPLE_CERTIFICATE" "APPLE_CERTIFICATE_PASSWORD" "APPLE_ID" "APPLE_ID_PASSWORD" "KEYCHAIN_PASSWORD" "APP_BUNDLE_ID")
 for var in "${required_vars[@]}"; do
     if [ -z "${!var}" ]; then
-        echo "Error: Missing required environment variable: $var"
         exit 1
     fi
 done
@@ -66,13 +65,12 @@ security import certificate.p12 -P "$APPLE_CERTIFICATE_PASSWORD" -A 2>/dev/null
 SIGNING_IDENTITY=$(security find-identity -v -p codesigning | grep "Apple Development" | head -1 | awk -F '"' '{print $2}')
 
 if [ -z "$SIGNING_IDENTITY" ]; then
-    echo "Error: No valid signing identity found"
     exit 1
 fi
 
 echo "Using signing identity: $SIGNING_IDENTITY"
 echo "Signing application..."
-codesign --force --options runtime --sign "$SIGNING_IDENTITY" Scope.app
+codesign --force --options runtime --sign "$SIGNING_IDENTITY" Scope.app 2>/dev/null
 
 rm -f certificate.p12
 
@@ -80,7 +78,7 @@ echo "Creating DMG..."
 hdiutil create -volname "Scope" -srcfolder Scope.app -ov -format UDZO Scope.dmg
 
 echo "Signing DMG..."
-codesign --force --sign "$APPLE_CERTIFICATE" Scope.dmg
+codesign --force --sign "$APPLE_CERTIFICATE" Scope.dmg 2>/dev/null
 
 echo "Notarizing DMG..."
 xcrun notarytool submit Scope.dmg --apple-id "$APPLE_ID" --password "$APPLE_ID_PASSWORD" --team-id "$APPLE_CERTIFICATE" --wait
