@@ -53,8 +53,6 @@
             vulkan-loader
             vulkan-validation-layers
             vulkan-headers
-            glib
-            gtk3
             webkitgtk_4_1
           ]
           ++ lib.optionals pkgs.stdenv.isDarwin [
