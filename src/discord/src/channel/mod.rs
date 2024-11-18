@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use scope_backend_cache::async_list::{refcacheslice::Exists, AsyncListCache};
 use scope_chat::{
-  async_list::{AsyncList, AsyncListIndex, AsyncListResult},
+  async_list::{AsyncList, AsyncListIndex, AsyncListItem, AsyncListResult},
   channel::Channel,
 };
 use serenity::all::{GetMessages, MessageId, Timestamp};
@@ -98,6 +98,8 @@ impl AsyncList for DiscordChannel {
   }
 
   async fn get(&self, index: AsyncListIndex<Snowflake>) -> Option<AsyncListResult<Self::Content>> {
+    println!("Start");
+
     let mut lock = self.cache.lock().await;
     let cache_value = lock.get(index.clone());
 
@@ -113,11 +115,41 @@ impl AsyncList for DiscordChannel {
 
     match index {
       AsyncListIndex::RelativeToTop(_) => todo!("Unsupported"),
-      AsyncListIndex::RelativeToBottom(index) => todo!("TODO :3 have fun!!"),
+      AsyncListIndex::RelativeToBottom(index) => {
+        if index != 0 {
+          unimplemented!()
+        }
+
+        let v = self.client.get_messages(self.channel_id, GetMessages::new().limit(50)).await;
+
+        let is_end = v.len() == 50;
+        is_bottom = true;
+        is_top = v.len() == 1;
+
+        result = v.get(0).map(DiscordMessage::from_serenity);
+
+        let mut iter = v.iter();
+
+        let v = iter.next();
+
+        if let Some(v) = v {
+          let msg = DiscordMessage::from_serenity(v);
+          let mut id = msg.get_list_identifier();
+          lock.append_bottom(msg);
+
+          for message in iter {
+            let msg = DiscordMessage::from_serenity(&message);
+            let nid = msg.get_list_identifier();
+
+            lock.insert(AsyncListIndex::Before(id), msg, false, is_end);
+
+            id = nid;
+          }
+        };
+      }
       AsyncListIndex::After(message) => {
         // NEWEST first
         let v = self.client.get_messages(self.channel_id, GetMessages::new().after(MessageId::new(message.content)).limit(50)).await;
-        let mut lock = self.cache.lock().await;
         let mut current_index: Snowflake = message;
 
         let is_end = v.len() == 50;
@@ -138,7 +170,6 @@ impl AsyncList for DiscordChannel {
       }
       AsyncListIndex::Before(message) => {
         let v = self.client.get_messages(self.channel_id, GetMessages::new().after(MessageId::new(message.content)).limit(50)).await;
-        let mut lock = self.cache.lock().await;
         let mut current_index: Snowflake = message;
 
         let is_end = v.len() == 50;
@@ -158,6 +189,8 @@ impl AsyncList for DiscordChannel {
         }
       }
     };
+
+    println!("End");
 
     result.map(|v| AsyncListResult {
       content: v,

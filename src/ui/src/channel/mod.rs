@@ -1,24 +1,29 @@
 pub mod message;
-pub mod message_list;
 
 use components::input::{InputEvent, TextInput};
-use gpui::{div, list, Context, ListState, Model, ParentElement, Render, Styled, View, VisualContext};
-use message_list::MessageList;
-use scope_chat::{channel::Channel, message::Message};
+use gpui::{div, IntoElement, ParentElement, Pixels, Render, Styled, View, VisualContext};
+use message::{message, MessageGroup};
+use scope_chat::channel::Channel;
 
-pub struct ChannelView<M: Message + 'static> {
-  list_state: ListState,
-  list_model: Model<MessageList<M>>,
+use crate::component::async_list::{AsyncListComponent, StartAt};
+
+pub struct ChannelView<C: Channel + 'static> {
+  list_view: View<AsyncListComponent<C>>,
   message_input: View<TextInput>,
 }
 
-impl<M: Message + 'static> ChannelView<M> {
-  pub fn create(ctx: &mut gpui::ViewContext<'_, ChannelView<M>>, channel: impl Channel<Message = M> + 'static) -> Self {
-    let state_model = ctx.new_model(|_cx| MessageList::<M>::new());
-
-    let async_model = state_model.clone();
-    let mut async_ctx = ctx.to_async();
+impl<C: Channel + 'static> ChannelView<C> {
+  pub fn create(ctx: &mut gpui::ViewContext<'_, ChannelView<C>>, channel: C) -> Self {
     let mut channel_listener = channel.get_receiver();
+
+    let list_view = ctx.new_view(|cx| {
+      AsyncListComponent::create(cx, channel, StartAt::Bottom, Pixels(30.), |msg| {
+        message(MessageGroup::new(msg.clone())).into_any_element()
+      })
+    });
+
+    let async_model = list_view.clone();
+    let mut async_ctx = ctx.to_async();
 
     ctx
       .foreground_executor()
@@ -28,18 +33,12 @@ impl<M: Message + 'static> ChannelView<M> {
 
           async_model
             .update(&mut async_ctx, |data, ctx| {
-              data.add_external_message(message);
+              // data.add_external_message(message);
+              todo!();
               ctx.notify();
             })
             .unwrap();
         }
-      })
-      .detach();
-
-    ctx
-      .observe(&state_model, |this: &mut ChannelView<M>, model, cx| {
-        this.list_state = model.read(cx).create_list_state();
-        cx.notify();
       })
       .detach();
 
@@ -54,38 +53,38 @@ impl<M: Message + 'static> ChannelView<M> {
     ctx
       .subscribe(&message_input, move |channel_view, text_input, input_event, ctx| {
         if let InputEvent::PressEnter = input_event {
-          let content = text_input.read(ctx).text().to_string();
-          if content.is_empty() {
-            return;
-          }
-          let channel_sender = channel.clone();
+          // let content = text_input.read(ctx).text().to_string();
+          // if content.is_empty() {
+          //   return;
+          // }
+          // let channel_sender = channel.clone();
 
-          text_input.update(ctx, |text_input, cx| {
-            text_input.set_text("", cx);
-          });
+          // text_input.update(ctx, |text_input, cx| {
+          //   text_input.set_text("", cx);
+          // });
 
-          let nonce = random_string::generate(20, random_string::charsets::ALPHANUMERIC);
-          let pending = channel.send_message(content, nonce);
+          // let nonce = random_string::generate(20, random_string::charsets::ALPHANUMERIC);
+          // let pending = channel.send_message(content, nonce);
 
-          channel_view.list_model.update(ctx, move |v, _| {
-            v.add_pending_message(pending);
-          });
-          channel_view.list_state = channel_view.list_model.read(ctx).create_list_state();
-          ctx.notify();
+          // channel_view.list_model.update(ctx, move |v, _| unimplemented!());
+          // ctx.notify();
         }
       })
       .detach();
 
-    ChannelView::<M> {
-      list_state: state_model.read(ctx).create_list_state(),
-      list_model: state_model,
-      message_input,
-    }
+    ChannelView::<C> { list_view, message_input }
   }
 }
 
-impl<M: Message + 'static> Render for ChannelView<M> {
-  fn render(&mut self, _: &mut gpui::ViewContext<Self>) -> impl gpui::IntoElement {
-    div().flex().flex_col().w_full().h_full().p_6().child(list(self.list_state.clone()).w_full().h_full()).child(self.message_input.clone())
+impl<C: Channel + 'static> Render for ChannelView<C> {
+  fn render(&mut self, cx: &mut gpui::ViewContext<Self>) -> impl gpui::IntoElement {
+    div()
+      .flex()
+      .flex_col()
+      .w_full()
+      .h_full()
+      .p_6()
+      .child(div().w_full().h_full().flex().flex_col().child(self.list_view.clone()))
+      .child(self.message_input.clone())
   }
 }

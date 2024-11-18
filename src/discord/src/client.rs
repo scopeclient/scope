@@ -98,11 +98,13 @@ impl DiscordClient {
   }
 
   pub async fn get_messages(&self, channel_id: Snowflake, builder: GetMessages) -> Vec<Message> {
+    println!("Discord: get_messages");
     // FIXME: proper error handling
     ChannelId::new(channel_id.content).messages(self.discord().http.clone(), builder).await.unwrap()
   }
 
   pub async fn get_specific_message(&self, channel_id: Snowflake, message_id: Snowflake) -> Option<Message> {
+    println!("Discord: get_specific_messages");
     // FIXME: proper error handling
     Some(ChannelId::new(channel_id.content).message(self.discord().http.clone(), MessageId::new(message_id.content)).await.unwrap())
   }
