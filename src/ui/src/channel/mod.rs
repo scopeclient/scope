@@ -16,11 +16,8 @@ impl<C: Channel + 'static> ChannelView<C> {
   pub fn create(ctx: &mut gpui::ViewContext<'_, ChannelView<C>>, channel: C) -> Self {
     let mut channel_listener = channel.get_receiver();
 
-    let list_view = ctx.new_view(|cx| {
-      AsyncListComponent::create(cx, channel, StartAt::Bottom, Pixels(30.), |msg| {
-        message(MessageGroup::new(msg.clone())).into_any_element()
-      })
-    });
+    let list_view =
+      ctx.new_view(|cx| AsyncListComponent::create(cx, channel, Pixels(30.), |msg| message(MessageGroup::new(msg.clone())).into_any_element()));
 
     let async_model = list_view.clone();
     let mut async_ctx = ctx.to_async();

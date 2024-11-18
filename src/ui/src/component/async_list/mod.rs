@@ -5,8 +5,8 @@ use std::{cell::RefCell, rc::Rc};
 
 use element::{AsyncListComponentElement, AsyncListComponentElementView};
 use gpui::{
-  div, list, rgb, AnyElement, AppContext, Context, Element, IntoElement, ListAlignment, ListState, Model, ParentElement, Pixels, Render, Styled,
-  View, VisualContext,
+  div, list, rgb, AnyElement, AppContext, Context, IntoElement, ListAlignment, ListState, Model, ParentElement, Pixels, Render, Styled, View,
+  VisualContext,
 };
 use marker::Marker;
 use scope_chat::async_list::{AsyncList, AsyncListIndex, AsyncListItem};
@@ -17,7 +17,6 @@ where
 {
   list: Rc<RefCell<T>>,
   cache: Rc<RefCell<Vec<View<AsyncListComponentElementView<T::Content>>>>>,
-  alignment: ListAlignment,
   overdraw: Pixels,
 
   // top, bottom
@@ -35,15 +34,10 @@ impl<T: AsyncList> AsyncListComponent<T>
 where
   T: 'static,
 {
-  pub fn create(cx: &mut AppContext, list: T, start_at: StartAt, overdraw: Pixels, renderer: impl (Fn(&T::Content) -> AnyElement) + 'static) -> Self {
+  pub fn create(cx: &mut AppContext, list: T, overdraw: Pixels, renderer: impl (Fn(&T::Content) -> AnyElement) + 'static) -> Self {
     AsyncListComponent {
       list: Rc::new(RefCell::new(list)),
       cache: Default::default(),
-      alignment: if let StartAt::Bottom = start_at {
-        ListAlignment::Bottom
-      } else {
-        ListAlignment::Top
-      },
       overdraw,
       bounds_flags: cx.new_model(|_| (false, false)),
       renderer: Rc::new(RefCell::new(renderer)),
@@ -94,11 +88,7 @@ where
           AsyncListIndex::RelativeToBottom(0)
         };
 
-        println!("  {:?}", index);
-
         let list = self.list.clone();
-
-        println!("Pushed to bottom");
 
         let renderer = self.renderer.clone();
 
