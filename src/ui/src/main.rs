@@ -5,7 +5,7 @@ pub mod channel;
 use std::sync::Arc;
 
 use app_state::AppState;
-use components::theme::Theme;
+use components::theme::{Theme, ThemeColor, ThemeMode};
 use gpui::*;
 use http_client::anyhow;
 
@@ -47,7 +47,13 @@ async fn main() {
       return;
     }
 
-    Theme::sync_system_appearance(cx);
+    let mut theme = Theme::from(ThemeColor::dark());
+    theme.mode = ThemeMode::Dark;
+    theme.accent = hsla(335.0 / 360.0, 97.0 / 100.0, 61.0 / 100.0, 1.0);
+    theme.title_bar = hsla(335.0 / 360.0, 97.0 / 100.0, 61.0 / 100.0, 1.0);
+
+    cx.set_global(theme);
+    cx.refresh();
 
     let opts = WindowOptions {
       window_decorations: Some(WindowDecorations::Client),
