@@ -53,6 +53,9 @@
             vulkan-loader
             vulkan-validation-layers
             vulkan-headers
+            glib
+            gtk3
+            webkitgtk_4_1
           ]
           ++ lib.optionals pkgs.stdenv.isDarwin [
             # Additional darwin specific inputs can be set here
@@ -102,7 +105,7 @@
             };
           in ''
             install -Dm644 ${icon} $out/share/icons/hicolor/128x128/apps/Scope.png
-            wrapProgram $out/bin/scope --prefix LD_LIBRARY_PATH : "${pkgs.vulkan-loader}/lib"
+            wrapProgram $out/bin/scope --prefix LD_LIBRARY_PATH : "${pkgs.lib.makeLibraryPath commonArgs.buildInputs}"
           '';
         });
     in {
@@ -176,7 +179,7 @@
         # Additional dev-shell environment variables can be set directly
         # MY_CUSTOM_DEVELOPMENT_VAR = "something else";
         VK_LAYER_PATH = "${pkgs.vulkan-validation-layers}/share/vulkan/explicit_layer.d";
-        LD_LIBRARY_PATH = "${pkgs.vulkan-loader}/lib:$LD_LIBRARY_PATH";
+        LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath commonArgs.buildInputs}";
 
         # Extra inputs can be added here; cargo and rustc are provided by default.
         packages = [
