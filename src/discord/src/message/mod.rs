@@ -49,5 +49,9 @@ impl Message for DiscordMessage {
 }
 
 impl AsyncListItem for DiscordMessage {
-  type Identifier = String;
+  type Identifier = Snowflake;
+
+  fn get_list_identifier(&self) -> Self::Identifier {
+    self.id
+  }
 }

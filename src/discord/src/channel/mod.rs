@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use scope_chat::{
-  async_list::{AsyncList, AsyncListIndex, AsyncListItem},
+  async_list::{AsyncList, AsyncListIndex, AsyncListItem, AsyncListResult},
   channel::Channel,
 };
-use serenity::all::Timestamp;
+use serenity::all::{ChannelId, GetMessages, Timestamp};
 use tokio::sync::broadcast;
 
 use crate::{
@@ -69,11 +69,11 @@ impl AsyncList for DiscordChannel {
     unimplemented!()
   }
 
-  async fn find(&self, identifier: &<Self::Content as AsyncListItem>::Identifier) -> Option<Self::Content> {
+  async fn find(&self, identifier: &<Self::Content as AsyncListItem>::Identifier) -> Option<AsyncListResult<Self::Content>> {
     unimplemented!()
   }
 
-  async fn get(&self, index: AsyncListIndex<<Self::Content as AsyncListItem>::Identifier>) -> Option<Self::Content> {
+  async fn get(&self, index: AsyncListIndex<<Self::Content as AsyncListItem>::Identifier>) -> Option<AsyncListResult<Self::Content>> {
     unimplemented!()
   }
 

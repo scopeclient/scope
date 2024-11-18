@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use scope_chat::async_list::AsyncListIndex;
-use tokio::{fs::read, sync::RwLock};
+use tokio::sync::RwLock;
 
 use super::refcacheslice::{self, CacheReferencesSlice};
 
@@ -37,10 +37,10 @@ impl<I: Clone + Eq + PartialEq> CacheReferences<I> {
 
   pub async fn get(&self, index: AsyncListIndex<I>) -> Option<I> {
     let read_handle = self.dense_segments.read().await;
-    
+
     for segment in read_handle.values() {
       if let Some(value) = segment.get(index.clone()) {
-        return Some(value)
+        return Some(value);
       }
     }
 
@@ -53,15 +53,18 @@ impl<I: Clone + Eq + PartialEq> CacheReferences<I> {
   pub async fn insert_detached(&self, item: I) {
     let mut mutation_handle = self.dense_segments.write().await;
 
-    mutation_handle.insert(rand::random(), CacheReferencesSlice {
-      is_bounded_at_top: false,
-      is_bounded_at_bottom: false,
+    mutation_handle.insert(
+      rand::random(),
+      CacheReferencesSlice {
+        is_bounded_at_top: false,
+        is_bounded_at_bottom: false,
 
-      item_references: vec![item],
-    });
+        item_references: vec![item],
+      },
+    );
   }
 
-  pub async fn insert(&self, index: AsyncListIndex<I>, item: I,) {
+  pub async fn insert(&mut self, index: AsyncListIndex<I>, item: I, is_top: bool, is_bottom: bool) {
     // insert routine is really complex:
     // an insert can "join" together 2 segments
     // an insert can append to a segment
@@ -80,22 +83,32 @@ impl<I: Clone + Eq + PartialEq> CacheReferences<I> {
     if segments.len() == 0 {
       let mut mutation_handle = self.dense_segments.write().await;
 
-      mutation_handle.insert(rand::random(), CacheReferencesSlice {
-        is_bounded_at_top: is_first,
-        is_bounded_at_bottom: is_last,
+      mutation_handle.insert(
+        rand::random(),
+        CacheReferencesSlice {
+          is_bounded_at_top: is_top,
+          is_bounded_at_bottom: is_bottom,
 
-        item_references: vec![item],
-      });
+          item_references: vec![item],
+        },
+      );
     } else if segments.len() == 1 {
       let mut mutation_handle = self.dense_segments.write().await;
 
       mutation_handle.get_mut(segments[0].1).unwrap().insert(index.clone(), item);
+
+      if is_top {
+        self.top_bounded_identifier = Some(*segments[0].1)
+      }
+      if is_bottom {
+        self.bottom_bounded_identifier = Some(*segments[0].1)
+      }
     } else if segments.len() == 2 {
       let (li, ri) = match (segments[0], segments[1]) {
         ((refcacheslice::Position::After, lp), (refcacheslice::Position::Before, rp)) => (lp, rp),
         ((refcacheslice::Position::Before, rp), (refcacheslice::Position::After, lp)) => (lp, rp),
 
-        _ => panic!("How are there two candidates that aren't (Before, After) or (After, Before)?")
+        _ => panic!("How are there two candidates that aren't (Before, After) or (After, Before)?"),
       };
 
       let mut mutation_handle = self.dense_segments.write().await;
@@ -113,17 +126,20 @@ impl<I: Clone + Eq + PartialEq> CacheReferences<I> {
       };
 
       let mut merged = left.item_references;
-      
+
       merged.push(item);
 
       merged.extend(right.item_references.into_iter());
 
-      mutation_handle.insert(rand::random(), CacheReferencesSlice {
-        is_bounded_at_top: left.is_bounded_at_top,
-        is_bounded_at_bottom: right.is_bounded_at_bottom,
+      mutation_handle.insert(
+        rand::random(),
+        CacheReferencesSlice {
+          is_bounded_at_top: left.is_bounded_at_top,
+          is_bounded_at_bottom: right.is_bounded_at_bottom,
 
-        item_references: merged,
-      });
+          item_references: merged,
+        },
+      );
     } else {
       panic!("Impossible state")
     }

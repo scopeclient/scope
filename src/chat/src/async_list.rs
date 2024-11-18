@@ -1,11 +1,23 @@
 use std::hash::Hash;
 
+pub struct AsyncListResult<T> {
+  pub content: T,
+  pub is_first: bool,
+  pub is_last: bool,
+}
+
 pub trait AsyncList {
   type Content: AsyncListItem;
 
   fn bounded_at_top_by(&self) -> impl std::future::Future<Output = Option<<Self::Content as AsyncListItem>::Identifier>>;
-  fn get(&self, index: AsyncListIndex<<Self::Content as AsyncListItem>::Identifier>) -> impl std::future::Future<Output = Option<Self::Content>>;
-  fn find(&self, identifier: &<Self::Content as AsyncListItem>::Identifier) -> impl std::future::Future<Output = Option<Self::Content>>;
+  fn get(
+    &self,
+    index: AsyncListIndex<<Self::Content as AsyncListItem>::Identifier>,
+  ) -> impl std::future::Future<Output = Option<AsyncListResult<Self::Content>>>;
+  fn find(
+    &self,
+    identifier: &<Self::Content as AsyncListItem>::Identifier,
+  ) -> impl std::future::Future<Output = Option<AsyncListResult<Self::Content>>>;
   fn bounded_at_bottom_by(&self) -> impl std::future::Future<Output = Option<<Self::Content as AsyncListItem>::Identifier>>;
 }
 

@@ -1,6 +1,7 @@
 use components::theme::ActiveTheme;
 use gpui::{div, img, rgb, Context, Model, ParentElement, Render, Styled, View, ViewContext, VisualContext};
 use scope_backend_discord::{channel::DiscordChannel, client::DiscordClient, message::DiscordMessage, snowflake::Snowflake};
+use scope_chat::message::Message;
 
 use crate::channel::ChannelView;
 
