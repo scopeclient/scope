@@ -55,6 +55,6 @@ impl Render for App {
     let title_bar = components::TitleBar::new()
       .child(div().flex().flex_row().text_color(rgb(0xFFFFFF)).gap_2().child(img("brand/scope-round-200.png").w_6().h_6()).child("Scope"));
 
-    div().w_full().h_full().flex().flex_col().child(title_bar).child(content)
+    div().bg(rgb(0x16171B)).w_full().h_full().flex().flex_col().child(title_bar).child(content)
   }
 }
