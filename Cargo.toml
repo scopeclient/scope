@@ -5,3 +5,4 @@ members = [
 ]
 
 [workspace.dependencies]
+chrono = "0.4.38"

@@ -28,6 +28,7 @@ components = { package = "ui", git = "https://github.com/longbridgeapp/gpui-comp
 log = "0.4.22"
 random-string = "1.1.0"
 rust-embed = "8.5.0"
+chrono.workspace = true
 
 [features]
 default = ["gpui/x11"]

@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use author::DiscordMessageAuthor;
 use content::DiscordMessageContent;
 use gpui::{Element, IntoElement};
@@ -38,5 +39,11 @@ impl Message for DiscordMessage {
     const MAX_DISCORD_MESSAGE_GAP_SECS_FOR_GROUP: i64 = 5 * 60;
 
     self.creation_time.signed_duration_since(*previous.creation_time).num_seconds() <= MAX_DISCORD_MESSAGE_GAP_SECS_FOR_GROUP
+  }
+
+  fn get_timestamp(&self) -> Option<DateTime<Utc>> {
+    let ts = self.creation_time.timestamp_millis();
+
+    DateTime::from_timestamp_millis(ts)
   }
 }

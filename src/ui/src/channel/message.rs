@@ -1,4 +1,6 @@
 use gpui::{div, img, rgb, Element, IntoElement, ParentElement, Styled};
+use gpui::prelude::FluentBuilder;
+use chrono::Local;
 use scope_chat::message::{Message, MessageAuthor};
 
 #[derive(Clone)]
@@ -24,7 +26,7 @@ impl<M: Message> MessageGroup<M> {
     self.contents.push(message);
   }
 
-  pub fn contents(&self) -> impl IntoIterator<Item = impl Element + '_> {
+  pub fn contents(&self) -> impl IntoIterator<Item=impl Element + '_> {
     self.contents.iter().map(|v| v.get_content())
   }
 
@@ -71,7 +73,21 @@ pub fn message<M: Message>(message: MessageGroup<M>) -> impl IntoElement {
         .flex_col()
         // enabling this, and thus enabling ellipsis causes a consistent panic!?
         // .child(div().text_ellipsis().min_w_0().child(message.get_author().get_display_name()))
-        .child(div().min_w_0().child(message.get_author().get_display_name()))
+        .child(
+          div()
+            .min_w_0()
+            .flex()
+            .gap_2()
+            .child(message.get_author().get_display_name())
+            .when_some(message.last().get_timestamp(), |d, ts| {
+              d.child(
+                div()
+                  .min_w_0()
+                  .text_color(rgb(0xAFBAC7))
+                  .text_sm()
+                  .child(ts.with_timezone(&Local).format("%I:%M %p").to_string()))
+            })
+        )
         .children(message.contents()),
     )
 }
