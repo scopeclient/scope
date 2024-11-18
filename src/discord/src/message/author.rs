@@ -24,6 +24,10 @@ impl MessageAuthor for DiscordMessageAuthor {
     self.icon.clone()
   }
 
+  fn get_small_icon(&self) -> String {
+    self.icon.clone() + "?size=32"
+  }
+
   fn get_id(&self) -> String {
     self.id.clone()
   }

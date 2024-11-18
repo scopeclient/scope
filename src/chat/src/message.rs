@@ -11,5 +11,6 @@ pub trait Message: Clone {
 pub trait MessageAuthor: PartialEq + Eq {
   fn get_display_name(&self) -> impl Element;
   fn get_icon(&self) -> String;
+  fn get_small_icon(&self) -> String;
   fn get_id(&self) -> String;
 }
