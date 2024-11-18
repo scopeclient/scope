@@ -7,7 +7,7 @@ pub mod menu;
 use std::sync::Arc;
 
 use app_state::AppState;
-use components::theme::{Theme, ThemeColor, ThemeMode};
+use components::theme::{hsl, Theme, ThemeColor, ThemeMode};
 use gpui::*;
 use http_client::anyhow;
 use menu::app_menus;
@@ -60,8 +60,9 @@ async fn main() {
 
     let mut theme = Theme::from(ThemeColor::dark());
     theme.mode = ThemeMode::Dark;
-    theme.accent = hsla(335.0 / 360.0, 97.0 / 100.0, 61.0 / 100.0, 1.0);
-    theme.title_bar = hsla(335.0 / 360.0, 97.0 / 100.0, 61.0 / 100.0, 1.0);
+    theme.accent = hsl(335.0, 97.0, 61.0);
+    theme.title_bar = hsl(335.0, 97.0, 61.0);
+    theme.background = hsl(225.0, 12.0, 10.0);
 
     cx.set_global(theme);
     cx.refresh();
