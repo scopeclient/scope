@@ -178,6 +178,8 @@ jobs:
     env:
       APPLE_ID: ${{ secrets.APPLE_ID }}
       APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      KEYCHAIN_PASSWORD: $(openssl rand -base64 32)
+      APP_BUNDLE_ID: "com.scopeclient.dekstop"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -217,7 +219,7 @@ jobs:
               <key>CFBundleDisplayName</key>
               <string>Scope</string>
               <key>CFBundleIdentifier</key>
-              <string>com.scope.app</string>
+              <string>com.scopeclient.desktop</string>
               <key>CFBundleVersion</key>
               <string>${{ needs.get-version.outputs.version }}</string>
               <key>CFBundlePackageType</key>
@@ -272,6 +274,8 @@ jobs:
     env:
       APPLE_ID: ${{ secrets.APPLE_ID }}
       APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      KEYCHAIN_PASSWORD: $(openssl rand -base64 32)
+      APP_BUNDLE_ID: "com.scopeclient.dekstop"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -311,7 +315,7 @@ jobs:
               <key>CFBundleDisplayName</key>
               <string>Scope</string>
               <key>CFBundleIdentifier</key>
-              <string>com.scope.app</string>
+              <string>com.scopeclient.desktop</string>
               <key>CFBundleVersion</key>
               <string>${{ needs.get-version.outputs.version }}</string>
               <key>CFBundlePackageType</key>
