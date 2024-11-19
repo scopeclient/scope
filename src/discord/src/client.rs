@@ -1,9 +1,12 @@
 use std::{
-  collections::HashMap, sync::{Arc, OnceLock}
+  collections::HashMap,
+  sync::{Arc, OnceLock},
 };
 
 use serenity::{
-  all::{Cache, ChannelId, Context, CreateMessage, Event, EventHandler, GatewayIntents, GetMessages, Message, MessageId, Nonce, RawEventHandler},
+  all::{
+    Cache, ChannelId, Context, CreateMessage, Event, EventHandler, GatewayIntents, GetMessages, Http, Message, MessageId, Nonce, RawEventHandler,
+  },
   async_trait,
 };
 use tokio::sync::{broadcast, RwLock};

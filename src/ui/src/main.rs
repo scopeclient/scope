@@ -3,7 +3,6 @@ pub mod app;
 pub mod app_state;
 pub mod channel;
 pub mod menu;
-pub mod component;
 
 use std::sync::Arc;
 

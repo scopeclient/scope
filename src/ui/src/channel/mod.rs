@@ -1,14 +1,14 @@
 pub mod message;
+pub mod message_list;
 
 use components::input::{InputEvent, TextInput};
 use gpui::{div, IntoElement, ParentElement, Pixels, Render, Styled, View, VisualContext};
 use message::{message, MessageGroup};
+use message_list::MessageListComponent;
 use scope_chat::channel::Channel;
 
-use crate::component::async_list::{AsyncListComponent, StartAt};
-
 pub struct ChannelView<C: Channel + 'static> {
-  list_view: View<AsyncListComponent<C>>,
+  list_view: View<MessageListComponent<C>>,
   message_input: View<TextInput>,
 }
 
@@ -16,8 +16,7 @@ impl<C: Channel + 'static> ChannelView<C> {
   pub fn create(ctx: &mut gpui::ViewContext<'_, ChannelView<C>>, channel: C) -> Self {
     let mut channel_listener = channel.get_receiver();
 
-    let list_view =
-      ctx.new_view(|cx| AsyncListComponent::create(cx, channel, Pixels(30.), |msg| message(MessageGroup::new(msg.clone())).into_any_element()));
+    let list_view = ctx.new_view(|cx| MessageListComponent::create(cx, channel, Pixels(30.)));
 
     let async_model = list_view.clone();
     let mut async_ctx = ctx.to_async();

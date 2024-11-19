@@ -1,15 +1,10 @@
-pub mod element;
-pub mod marker;
-
 use std::{cell::RefCell, rc::Rc};
 
-use element::{AsyncListComponentElement, AsyncListComponentElementView};
-use gpui::{
-  div, list, rgb, AnyElement, AppContext, Context, IntoElement, ListAlignment, ListOffset, ListState, Model, ParentElement, Pixels, Render, Styled,
-  View, VisualContext,
+use gpui::{div, list, rgb, AppContext, Context, IntoElement, ListAlignment, ListState, Model, ParentElement, Pixels, Render, Styled};
+use scope_chat::{
+  async_list::{AsyncListIndex, AsyncListItem},
+  channel::Channel,
 };
-use marker::Marker;
-use scope_chat::async_list::{AsyncList, AsyncListIndex, AsyncListItem};
 
 #[derive(Clone, Copy)]
 struct ListStateDirtyState {
@@ -21,18 +16,21 @@ struct BoundFlags {
   pub after: bool,
 }
 
-pub struct AsyncListComponent<T: AsyncList>
+pub enum Element<T> {
+  Unresolved,
+  Resolved(T),
+}
+
+pub struct MessageListComponent<C: Channel>
 where
-  T::Content: 'static,
+  C::Content: 'static,
 {
-  list: Rc<RefCell<T>>,
-  cache: Rc<RefCell<Vec<View<AsyncListComponentElementView<T::Content>>>>>,
+  list: Rc<RefCell<C>>,
+  cache: Model<Vec<Element<Option<C::Content>>>>,
   overdraw: Pixels,
 
   // top, bottom
   bounds_flags: Model<BoundFlags>,
-
-  renderer: Rc<RefCell<dyn Fn(&T::Content) -> AnyElement>>,
 
   list_state: Model<Option<ListState>>,
   list_state_dirty: Model<Option<ListStateDirtyState>>,
@@ -43,25 +41,23 @@ pub enum StartAt {
   Top,
 }
 
-impl<T: AsyncList> AsyncListComponent<T>
+impl<T: Channel> MessageListComponent<T>
 where
   T: 'static,
 {
-  pub fn create(cx: &mut AppContext, list: T, overdraw: Pixels, renderer: impl (Fn(&T::Content) -> AnyElement) + 'static) -> Self {
-    AsyncListComponent {
+  pub fn create(cx: &mut AppContext, list: T, overdraw: Pixels) -> Self {
+    MessageListComponent {
       list: Rc::new(RefCell::new(list)),
-      cache: Default::default(),
+      cache: cx.new_model(|_| Default::default()),
       overdraw,
       bounds_flags: cx.new_model(|_| BoundFlags { before: false, after: false }),
-      renderer: Rc::new(RefCell::new(renderer)),
       list_state: cx.new_model(|_| None),
       list_state_dirty: cx.new_model(|_| None),
     }
   }
 
-  fn list_state(&self, _: &mut gpui::ViewContext<Self>) -> ListState {
-    let handle = self.cache.clone();
-    let len = self.cache.borrow().len();
+  fn list_state(&self, cx: &mut gpui::ViewContext<Self>) -> ListState {
+    let len = self.cache.read(cx).len();
     let bounds_model = self.bounds_flags.clone();
 
     ListState::new(
@@ -72,19 +68,19 @@ where
         if len == 0 {
           cx.update_model(&bounds_model, |v, _| v.after = true);
 
-          return div().child(cx.new_view(|_| Marker { name: "Empty" })).into_any_element();
+          return div().into_any_element();
         }
 
         if idx == 0 {
           cx.update_model(&bounds_model, |v, _| v.before = true);
 
-          div().child(cx.new_view(|_| Marker { name: "Upper" }))
+          div()
         } else if idx == len + 1 {
           cx.update_model(&bounds_model, |v, _| v.after = true);
 
-          div().child(cx.new_view(|_| Marker { name: "Lower" }))
+          div()
         } else {
-          div().text_color(rgb(0xFFFFFF)).child(handle.borrow().get(idx - 1).unwrap().clone())
+          div().text_color(rgb(0xFFFFFF)).child("Chottomatte")
         }
         .into_any_element()
       },
@@ -122,73 +118,85 @@ where
     let mut dirty = None;
 
     // update bottom
-    'update_bottom: {
-      if self.bounds_flags.read(cx).after {
-        let mut borrow = self.cache.borrow_mut();
+    if self.bounds_flags.read(cx).after {
+      let cache_model = self.cache.clone();
+      let list_handle = self.list.clone();
+
+      self.cache.update(cx, |borrow, cx| {
         let last = borrow.last();
 
         let index = if let Some(last) = last {
-          AsyncListIndex::After(if let AsyncListComponentElement::Resolved(v) = last.model.read(cx).element.read(cx) {
+          AsyncListIndex::After(if let Element::Resolved(Some(v)) = last {
             v.get_list_identifier()
           } else {
-            break 'update_bottom;
+            return;
           })
         } else {
           AsyncListIndex::RelativeToBottom(0)
         };
 
-        let list = self.list.clone();
+        borrow.push(Element::Unresolved);
 
-        let renderer = self.renderer.clone();
+        let insert_index = borrow.len();
+        let mut async_ctx = cx.to_async();
 
-        borrow.push(cx.new_view(move |cx| {
-          AsyncListComponentElementView::new(cx, move |rf| (renderer.borrow())(rf), async move { list.borrow_mut().get(index).await })
-        }));
+        cx.foreground_executor()
+          .spawn(async move {
+            let v = list_handle.borrow().get(index.clone()).await;
 
-        cx.on_next_frame(|_, cx| cx.notify());
+            cache_model
+              .update(&mut async_ctx, |borrow, cx| {
+                borrow[insert_index] = Element::Resolved(v.map(|v| v.content));
+                cx.notify();
+              })
+              .unwrap();
+          })
+          .detach();
 
         dirty = Some(ListStateDirtyState { new_items: 1 });
-      }
+      });
     }
 
     // update top
-    'update_top: {
-      if self.bounds_flags.read(cx).before {
-        let mut borrow = self.cache.borrow_mut();
+    if self.bounds_flags.read(cx).before {
+      let cache_model = self.cache.clone();
+      let list_handle = self.list.clone();
+
+      self.cache.update(cx, |borrow, cx| {
         let first = borrow.first();
 
         let index = if let Some(first) = first {
-          AsyncListIndex::Before(if let AsyncListComponentElement::Resolved(v) = first.model.read(cx).element.read(cx) {
+          AsyncListIndex::Before(if let Element::Resolved(Some(v)) = first {
             v.get_list_identifier()
           } else {
-            break 'update_top;
+            return;
           })
         } else {
-          break 'update_top;
+          return;
         };
-
-        let list = self.list.clone();
-
-        let renderer = self.renderer.clone();
 
         println!("Inserting at top, aka {:?}", index);
 
-        borrow.insert(
-          0,
-          cx.new_view(move |cx| {
-            AsyncListComponentElementView::new(cx, move |rf| (renderer.borrow())(rf), async move {
-              let result = list.borrow_mut().get(index.clone()).await;
-              println!("{:?} resolved to {:?}", index, result);
+        borrow.insert(0, Element::Unresolved);
 
-              result
-            })
-          }),
-        );
+        let insert_index = 0;
+        let mut async_ctx = cx.to_async();
 
-        cx.on_next_frame(|_, cx| cx.notify());
+        cx.foreground_executor()
+          .spawn(async move {
+            let v = list_handle.borrow().get(index.clone()).await;
+
+            cache_model
+              .update(&mut async_ctx, |borrow, cx| {
+                borrow[insert_index] = Element::Resolved(v.map(|v| v.content));
+                cx.notify();
+              })
+              .unwrap();
+          })
+          .detach();
 
         dirty = dirty.or(Some(ListStateDirtyState { new_items: 0 }));
-      }
+      });
     }
 
     if dirty.is_some() {
@@ -202,7 +210,7 @@ where
   }
 }
 
-impl<T: AsyncList + 'static> Render for AsyncListComponent<T> {
+impl<T: Channel + 'static> Render for MessageListComponent<T> {
   fn render(&mut self, cx: &mut gpui::ViewContext<Self>) -> impl gpui::IntoElement {
     self.update(cx);
 
