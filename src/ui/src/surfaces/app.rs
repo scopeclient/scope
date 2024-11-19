@@ -11,7 +11,7 @@ pub struct App {
 impl App {
   pub fn new(ctx: &mut ViewContext<'_, Self>) -> App {
     let token = dotenv::var("DISCORD_TOKEN").expect("Must provide DISCORD_TOKEN in .env");
-    let demo_channel_id = dotenv::var("DEMO_CHANNEL_ID").expect("Must provide DEMO_CHANNEL_ID in .env");
+    let demo_channel_id = dotenv::var("DEMO_CHANNEL_ID").unwrap_or("1306357873437179944".into());
 
     let mut context = ctx.to_async();
 

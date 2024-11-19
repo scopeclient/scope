@@ -1,8 +1,9 @@
 pub mod actions;
-pub mod app;
 pub mod app_state;
 pub mod channel;
 pub mod menu;
+pub mod settings;
+pub mod surfaces;
 
 use std::sync::Arc;
 
@@ -67,17 +68,27 @@ async fn main() {
     cx.set_global(theme);
     cx.refresh();
 
-    let opts = WindowOptions {
-      window_decorations: Some(WindowDecorations::Client),
-      window_min_size: Some(size(Pixels(800.0), Pixels(600.0))),
-      titlebar: Some(TitlebarOptions {
-        appears_transparent: true,
-        title: Some(SharedString::new_static("scope")),
-        ..Default::default()
-      }),
-      ..Default::default()
-    };
+    let settings = settings::load_or_init_settings_on_disk();
 
-    cx.open_window(opts, |cx| cx.new_view(crate::app::App::new)).unwrap();
+    match settings.token {
+      Some(token) => {
+        let opts = WindowOptions {
+          window_decorations: Some(WindowDecorations::Client),
+          window_min_size: Some(size(Pixels(800.0), Pixels(600.0))),
+          titlebar: Some(TitlebarOptions {
+            appears_transparent: true,
+            title: Some(SharedString::new_static("scope")),
+            ..Default::default()
+          }),
+          ..Default::default()
+        };
+
+        cx.open_window(opts, |cx| cx.new_view(crate::surfaces::app::App::new)).unwrap();
+      }
+
+      None => {
+        cx.open_window(WindowOptions::default(), |cx| crate::surfaces::welcome::Welcome {}).unwrap();
+      }
+    }
   });
 }
