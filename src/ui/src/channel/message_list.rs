@@ -16,11 +16,13 @@ struct ListStateDirtyState {
   pub shift: usize,
 }
 
+#[derive(Clone, Copy)]
 struct BoundFlags {
   pub before: bool,
   pub after: bool,
 }
 
+#[derive(Debug)]
 pub enum Element<T> {
   Unresolved,
   Resolved(T),
@@ -52,14 +54,27 @@ where
 {
   pub fn create(cx: &mut ViewContext<Self>, list: T, overdraw: Pixels) -> Self {
     let cache = cx.new_model(|_| Default::default());
+    let list_state = cx.new_model(|_| None);
     let list_state_dirty = cx.new_model(|_| None);
 
-    cx.observe(&cache, |_, _, cx| {
+    let lsc = list_state.clone();
+
+    cx.observe(&cache, move |c, _, cx| {
+      let ls = c.list_state(cx);
+
+      lsc.update(cx, |v, _| *v = Some(ls));
+
       cx.notify();
     })
     .detach();
 
-    cx.observe(&list_state_dirty, |_, _, cx| {
+    let lsc = list_state.clone();
+
+    cx.observe(&list_state_dirty, move |c, _, cx| {
+      let ls = c.list_state(cx);
+
+      lsc.update(cx, |v, _| *v = Some(ls));
+
       cx.notify();
     })
     .detach();
@@ -69,7 +84,7 @@ where
       cache,
       overdraw,
       bounds_flags: cx.new_model(|_| BoundFlags { before: false, after: false }),
-      list_state: cx.new_model(|_| None),
+      list_state,
       list_state_dirty,
     }
   }
@@ -77,30 +92,57 @@ where
   fn list_state(&self, cx: &mut gpui::ViewContext<Self>) -> ListState {
     let bounds_model = self.bounds_flags.clone();
 
+    let list_state_dirty = self.list_state_dirty.read(cx).clone();
+
+    let mut added_elements_bottom = 0;
+    let mut shift = 0;
+
+    let mut remaining_shift = list_state_dirty.map(|v| v.shift).unwrap_or(0);
+    let mut remaining_gap_new_items = self.cache.read(cx).len() - list_state_dirty.map(|v| v.new_items).unwrap_or(0);
+
     let mut groups = vec![];
 
-    for item in self.cache.read(cx) {
+    for (item, index) in self.cache.read(cx).iter().zip(0..) {
+      let mut items_added: usize = 0;
+
       match item {
         Element::Unresolved => groups.push(Element::Unresolved),
         Element::Resolved(None) => groups.push(Element::Resolved(None)),
         Element::Resolved(Some(m)) => match groups.last_mut() {
           None | Some(Element::Unresolved) | Some(Element::Resolved(None)) => {
+            items_added += 1;
             groups.push(Element::Resolved(Some(MessageGroup::new(m.clone()))));
           }
           Some(Element::Resolved(Some(old_group))) => {
             if m.get_author() == old_group.last().get_author() && m.should_group(old_group.last()) {
               old_group.add(m.clone());
             } else {
+              items_added += 1;
               groups.push(Element::Resolved(Some(MessageGroup::new(m.clone()))));
             }
           }
         },
       }
+
+      if index == 0 {
+        continue;
+      }
+
+      if remaining_shift > 0 {
+        remaining_shift -= 1;
+        shift += items_added;
+      }
+
+      if remaining_gap_new_items == 0 {
+        added_elements_bottom = items_added;
+      } else {
+        remaining_gap_new_items -= 1;
+      }
     }
 
     let len = groups.len();
 
-    ListState::new(
+    let new_list_state = ListState::new(
       if len == 0 { 1 } else { len + 2 },
       ListAlignment::Bottom,
       self.overdraw,
@@ -128,35 +170,22 @@ where
         }
         .into_any_element()
       },
-    )
-  }
+    );
 
-  fn get_or_refresh_list_state(&self, cx: &mut gpui::ViewContext<Self>) -> ListState {
-    let list_state_dirty = self.list_state_dirty.read(cx).clone();
-
-    if list_state_dirty.is_none() {
-      if let Some(list_state) = self.list_state.read(cx) {
-        return list_state.clone();
-      }
-    }
-
-    let new_list_state = self.list_state(cx);
     let old_list_state = self.list_state.read(cx);
 
     if let Some(old_list_state) = old_list_state {
       let mut new_scroll_top = old_list_state.logical_scroll_top();
 
-      if let Some(list_state_dirty) = list_state_dirty {
-        if old_list_state.logical_scroll_top().item_ix == old_list_state.item_count() {
-          new_scroll_top.item_ix += list_state_dirty.new_items;
+      if old_list_state.logical_scroll_top().item_ix == old_list_state.item_count() {
+        new_scroll_top.item_ix += added_elements_bottom;
 
-          if list_state_dirty.new_items > 0 {
-            new_scroll_top.offset_in_item = Pixels(0.);
-          }
+        if added_elements_bottom > 0 {
+          new_scroll_top.offset_in_item = Pixels(0.);
         }
-
-        new_scroll_top.item_ix += list_state_dirty.shift;
       }
+
+      new_scroll_top.item_ix += shift;
 
       println!(
         "List states:\n  Old: {:?}\n  New: {:?}",
@@ -175,8 +204,10 @@ where
   fn update(&mut self, cx: &mut gpui::ViewContext<Self>) {
     let mut dirty = None;
 
+    let mut flags = *self.bounds_flags.read(cx);
+
     // update bottom
-    if self.bounds_flags.read(cx).after {
+    if flags.after {
       let cache_model = self.cache.clone();
       let list_handle = self.list.clone();
 
@@ -187,6 +218,7 @@ where
           AsyncListIndex::After(if let Element::Resolved(Some(v)) = last {
             v.get_list_identifier()
           } else {
+            flags.after = false;
             return;
           })
         } else {
@@ -211,6 +243,7 @@ where
             cache_model
               .update(&mut async_ctx, |borrow, cx| {
                 borrow[insert_index] = Element::Resolved(v.map(|v| v.content));
+
                 cx.notify();
               })
               .unwrap();
@@ -222,20 +255,24 @@ where
     }
 
     // update top
-    if self.bounds_flags.read(cx).before {
+    if flags.before {
       let cache_model = self.cache.clone();
       let list_handle = self.list.clone();
 
       self.cache.update(cx, |borrow, cx| {
         let first = borrow.first();
 
+        println!("First: {first:?}");
+
         let index = if let Some(first) = first {
           AsyncListIndex::Before(if let Element::Resolved(Some(v)) = first {
             v.get_list_identifier()
           } else {
+            flags.before = false;
             return;
           })
         } else {
+          flags.before = false;
           return;
         };
 
@@ -254,12 +291,18 @@ where
 
             let v = receiver.await.unwrap();
 
+            println!("Got");
+
             cache_model
               .update(&mut async_ctx, |borrow, cx| {
+                println!("Updating cache");
+
                 borrow[insert_index] = Element::Resolved(v.map(|v| v.content));
                 cx.notify();
               })
               .unwrap();
+
+            println!("Updated");
           })
           .detach();
 
@@ -282,8 +325,13 @@ where
     }
 
     self.bounds_flags.update(cx, |v, _| {
-      v.after = false;
-      v.before = false;
+      if flags.after {
+        v.after = false;
+      }
+
+      if flags.before {
+        v.before = false;
+      }
     })
   }
 }
@@ -292,6 +340,18 @@ impl<T: Channel + 'static> Render for MessageListComponent<T> {
   fn render(&mut self, cx: &mut gpui::ViewContext<Self>) -> impl gpui::IntoElement {
     self.update(cx);
 
-    div().w_full().h_full().child(list(self.get_or_refresh_list_state(cx)).w_full().h_full())
+    let ls = if let Some(v) = self.list_state.read(cx).clone() {
+      v
+    } else {
+      let list_state = self.list_state(cx);
+
+      let lsc = list_state.clone();
+
+      self.list_state.update(cx, move |v, _| *v = Some(lsc));
+
+      list_state
+    };
+
+    div().w_full().h_full().child(list(ls).w_full().h_full())
   }
 }
