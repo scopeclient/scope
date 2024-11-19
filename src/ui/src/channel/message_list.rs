@@ -213,12 +213,6 @@ where
 
       new_scroll_top.item_ix += shift;
 
-      println!(
-        "List states:\n  Old: {:?}\n  New: {:?}",
-        old_list_state.logical_scroll_top(),
-        new_scroll_top
-      );
-
       new_list_state.scroll_to(new_scroll_top);
     };
 
@@ -288,8 +282,6 @@ where
       self.cache.update(cx, |borrow, cx| {
         let first = borrow.first();
 
-        println!("First: {first:?}");
-
         let index = if let Some(first) = first {
           AsyncListIndex::Before(if let Element::Resolved(Some(v)) = first {
             v.get_list_identifier()
@@ -317,18 +309,12 @@ where
 
             let v = receiver.await.unwrap();
 
-            println!("Got");
-
             cache_model
               .update(&mut async_ctx, |borrow, cx| {
-                println!("Updating cache");
-
                 borrow[insert_index] = Element::Resolved(v.map(|v| v.content));
                 cx.notify();
               })
               .unwrap();
-
-            println!("Updated");
           })
           .detach();
 

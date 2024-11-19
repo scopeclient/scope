@@ -65,7 +65,7 @@ impl Channel for DiscordChannel {
   }
 }
 
-const DISCORD_MESSAGE_BATCH_SIZE: u8 = 5;
+const DISCORD_MESSAGE_BATCH_SIZE: u8 = 50;
 
 impl AsyncList for DiscordChannel {
   async fn bounded_at_bottom_by(&self) -> Option<Snowflake> {
