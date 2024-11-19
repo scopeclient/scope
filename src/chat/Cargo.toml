@@ -9,3 +9,4 @@ gpui = { git = "https://github.com/huacnlee/zed.git", branch = "export-platform-
   "font-kit",
 ] }
 tokio = "1.41.1"
+chrono.workspace = true
