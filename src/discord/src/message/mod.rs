@@ -10,7 +10,7 @@ use crate::snowflake::Snowflake;
 pub mod author;
 pub mod content;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DiscordMessage {
   pub content: DiscordMessageContent,
   pub author: DiscordMessageAuthor,

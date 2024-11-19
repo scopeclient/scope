@@ -16,6 +16,11 @@ struct ListStateDirtyState {
   pub new_items: usize,
 }
 
+struct BoundFlags {
+  pub before: bool,
+  pub after: bool,
+}
+
 pub struct AsyncListComponent<T: AsyncList>
 where
   T::Content: 'static,
@@ -25,7 +30,7 @@ where
   overdraw: Pixels,
 
   // top, bottom
-  bounds_flags: Model<(bool, bool)>,
+  bounds_flags: Model<BoundFlags>,
 
   renderer: Rc<RefCell<dyn Fn(&T::Content) -> AnyElement>>,
 
@@ -47,7 +52,7 @@ where
       list: Rc::new(RefCell::new(list)),
       cache: Default::default(),
       overdraw,
-      bounds_flags: cx.new_model(|_| (false, false)),
+      bounds_flags: cx.new_model(|_| BoundFlags { before: false, after: false }),
       renderer: Rc::new(RefCell::new(renderer)),
       list_state: cx.new_model(|_| None),
       list_state_dirty: cx.new_model(|_| None),
@@ -64,12 +69,18 @@ where
       ListAlignment::Bottom,
       self.overdraw,
       move |idx, cx| {
+        if len == 0 {
+          cx.update_model(&bounds_model, |v, _| v.after = true);
+
+          return div().child(cx.new_view(|_| Marker { name: "Empty" })).into_any_element();
+        }
+
         if idx == 0 {
-          cx.update_model(&bounds_model, |v, _| *v = (true, v.1));
+          cx.update_model(&bounds_model, |v, _| v.before = true);
 
           div().child(cx.new_view(|_| Marker { name: "Upper" }))
         } else if idx == len + 1 {
-          cx.update_model(&bounds_model, |v, _| *v = (v.0, true));
+          cx.update_model(&bounds_model, |v, _| v.after = true);
 
           div().child(cx.new_view(|_| Marker { name: "Lower" }))
         } else {
@@ -112,7 +123,7 @@ where
 
     // update bottom
     'update_bottom: {
-      if self.bounds_flags.read(cx).0 {
+      if self.bounds_flags.read(cx).after {
         let mut borrow = self.cache.borrow_mut();
         let last = borrow.last();
 
@@ -142,7 +153,7 @@ where
 
     // update top
     'update_top: {
-      if self.bounds_flags.read(cx).1 {
+      if self.bounds_flags.read(cx).before {
         let mut borrow = self.cache.borrow_mut();
         let first = borrow.first();
 
@@ -153,17 +164,24 @@ where
             break 'update_top;
           })
         } else {
-          AsyncListIndex::RelativeToTop(0)
+          break 'update_top;
         };
 
         let list = self.list.clone();
 
         let renderer = self.renderer.clone();
 
+        println!("Inserting at top, aka {:?}", index);
+
         borrow.insert(
           0,
           cx.new_view(move |cx| {
-            AsyncListComponentElementView::new(cx, move |rf| (renderer.borrow())(rf), async move { list.borrow_mut().get(index).await })
+            AsyncListComponentElementView::new(cx, move |rf| (renderer.borrow())(rf), async move {
+              let result = list.borrow_mut().get(index.clone()).await;
+              println!("{:?} resolved to {:?}", index, result);
+
+              result
+            })
           }),
         );
 
@@ -177,7 +195,10 @@ where
       self.list_state_dirty.update(cx, |v, _| *v = dirty);
     }
 
-    self.bounds_flags.update(cx, |v, _| *v = (false, false))
+    self.bounds_flags.update(cx, |v, _| {
+      v.after = false;
+      v.before = false;
+    })
   }
 }
 

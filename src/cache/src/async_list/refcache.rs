@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Debug};
 
 use scope_chat::async_list::AsyncListIndex;
 
@@ -104,8 +104,10 @@ impl<I: Clone + Eq + PartialEq> CacheReferences<I> {
     }
 
     if segments.len() == 0 {
+      let id = rand::random();
+
       self.dense_segments.insert(
-        rand::random(),
+        id,
         CacheReferencesSlice {
           is_bounded_at_top: is_top,
           is_bounded_at_bottom: is_bottom,
@@ -113,6 +115,14 @@ impl<I: Clone + Eq + PartialEq> CacheReferences<I> {
           item_references: vec![item],
         },
       );
+
+      if is_bottom {
+        self.bottom_bounded_identifier = Some(id);
+      }
+
+      if is_top {
+        self.top_bounded_identifier = Some(id);
+      }
     } else if segments.len() == 1 {
       self.dense_segments.get_mut(&segments[0].1).unwrap().insert(index.clone(), item, is_bottom, is_top);
 
@@ -151,8 +161,10 @@ impl<I: Clone + Eq + PartialEq> CacheReferences<I> {
 
       merged.extend(right.item_references.into_iter());
 
+      let id = rand::random();
+
       self.dense_segments.insert(
-        rand::random(),
+        id,
         CacheReferencesSlice {
           is_bounded_at_top: left.is_bounded_at_top,
           is_bounded_at_bottom: right.is_bounded_at_bottom,
@@ -160,8 +172,26 @@ impl<I: Clone + Eq + PartialEq> CacheReferences<I> {
           item_references: merged,
         },
       );
+
+      if left.is_bounded_at_top {
+        self.top_bounded_identifier = Some(id);
+      }
+
+      if right.is_bounded_at_bottom {
+        self.bottom_bounded_identifier = Some(id);
+      }
     } else {
       panic!("Impossible state")
     }
+  }
+}
+
+impl<I: Clone + Eq + PartialEq + Debug> Debug for CacheReferences<I> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("CacheReferences")
+      .field("top_bounded_segment", &self.top_bounded_identifier)
+      .field("bottom_bounded_segment", &self.bottom_bounded_identifier)
+      .field("dense_segments", &self.dense_segments)
+      .finish()
   }
 }

@@ -9,7 +9,7 @@ pub trait AsyncList {
   fn bounded_at_bottom_by(&self) -> impl Future<Output = Option<<Self::Content as AsyncListItem>::Identifier>>;
 }
 
-pub trait AsyncListItem: Clone {
+pub trait AsyncListItem: Clone + Debug {
   type Identifier: Eq + Hash + Clone + Send + Debug;
 
   fn get_list_identifier(&self) -> Self::Identifier;

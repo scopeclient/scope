@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use scope_chat::async_list::AsyncListIndex;
 
 pub struct CacheReferencesSlice<I: Clone + Eq + PartialEq> {
@@ -109,6 +111,16 @@ impl<I: Clone + Eq + PartialEq> CacheReferencesSlice<I> {
 
       _ => panic!("TODO: Figure out what well-defined behaviour for what should occur for inserting relative to top or bottom"),
     }
+  }
+}
+
+impl<I: Clone + Eq + PartialEq + Debug> Debug for CacheReferencesSlice<I> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("CacheReferences")
+      .field("is_bounded_at_top", &self.is_bounded_at_top)
+      .field("is_bounded_at_bottom", &self.is_bounded_at_bottom)
+      .field("item_references", &self.item_references)
+      .finish()
   }
 }
 

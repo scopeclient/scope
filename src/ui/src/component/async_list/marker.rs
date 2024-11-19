@@ -1,4 +1,4 @@
-use gpui::{div, IntoElement, Render};
+use gpui::{div, IntoElement, ParentElement, Render};
 
 pub struct Marker {
   pub name: &'static str,
@@ -6,6 +6,6 @@ pub struct Marker {
 
 impl Render for Marker {
   fn render(&mut self, cx: &mut gpui::ViewContext<Self>) -> impl gpui::IntoElement {
-    div()
+    div().child(self.name.to_owned())
   }
 }

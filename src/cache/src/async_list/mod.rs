@@ -1,18 +1,19 @@
 pub mod refcache;
 pub mod refcacheslice;
+pub mod tests;
 
 use std::collections::HashMap;
 
 use refcache::CacheReferences;
 use refcacheslice::Exists;
-use scope_chat::async_list::{AsyncList, AsyncListIndex, AsyncListItem, AsyncListResult};
+use scope_chat::async_list::{AsyncListIndex, AsyncListItem, AsyncListResult};
 
-pub struct AsyncListCache<L: AsyncList> {
-  cache_refs: CacheReferences<<L::Content as AsyncListItem>::Identifier>,
-  cache_map: HashMap<<L::Content as AsyncListItem>::Identifier, L::Content>,
+pub struct AsyncListCache<I: AsyncListItem> {
+  cache_refs: CacheReferences<I::Identifier>,
+  cache_map: HashMap<I::Identifier, I>,
 }
 
-impl<L: AsyncList> AsyncListCache<L> {
+impl<I: AsyncListItem> AsyncListCache<I> {
   pub fn new() -> Self {
     Self {
       cache_refs: CacheReferences::new(),
@@ -20,35 +21,39 @@ impl<L: AsyncList> AsyncListCache<L> {
     }
   }
 
-  pub fn append_bottom(&mut self, value: L::Content) {
+  pub fn append_bottom(&mut self, value: I) {
     let identifier = value.get_list_identifier();
 
     self.cache_refs.append_bottom(identifier.clone());
     self.cache_map.insert(identifier, value);
   }
 
-  pub fn insert(&mut self, index: AsyncListIndex<<L::Content as AsyncListItem>::Identifier>, value: L::Content, is_top: bool, is_bottom: bool) {
+  pub fn insert(&mut self, index: AsyncListIndex<I::Identifier>, value: I, is_top: bool, is_bottom: bool) {
     let identifier = value.get_list_identifier();
 
     self.cache_map.insert(identifier.clone(), value);
     self.cache_refs.insert(index, identifier.clone(), is_top, is_bottom);
   }
 
-  pub fn insert_unlocated(&mut self, value: L::Content) {
+  /// you mut **KNOW** that the item you are inserting is not:
+  ///  - directly next to (Before or After) **any** item in the list
+  ///  - the first or last item in the list
+  pub fn insert_detached(&mut self, value: I) {
     let identifier = value.get_list_identifier();
 
     self.cache_map.insert(identifier.clone(), value);
+    self.cache_refs.insert_detached(identifier);
   }
 
-  pub fn bounded_at_top_by(&self) -> Option<<L::Content as AsyncListItem>::Identifier> {
+  pub fn bounded_at_top_by(&self) -> Option<I::Identifier> {
     self.cache_refs.top_bound()
   }
 
-  pub fn bounded_at_bottom_by(&self) -> Option<<L::Content as AsyncListItem>::Identifier> {
+  pub fn bounded_at_bottom_by(&self) -> Option<I::Identifier> {
     self.cache_refs.bottom_bound()
   }
 
-  pub fn get(&self, index: AsyncListIndex<<L::Content as AsyncListItem>::Identifier>) -> Exists<AsyncListResult<L::Content>> {
+  pub fn get(&self, index: AsyncListIndex<I::Identifier>) -> Exists<AsyncListResult<I>> {
     let cache_result = self.cache_refs.get(index.clone());
 
     if let Exists::Yes(cache_result) = cache_result {
@@ -66,7 +71,7 @@ impl<L: AsyncList> AsyncListCache<L> {
     Exists::Unknown
   }
 
-  pub fn find(&self, identifier: &<L::Content as AsyncListItem>::Identifier) -> Option<L::Content> {
+  pub fn find(&self, identifier: &I::Identifier) -> Option<I> {
     self.cache_map.get(identifier).cloned()
   }
 }

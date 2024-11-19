@@ -6,7 +6,7 @@ use scope_chat::{
   channel::Channel,
 };
 use serenity::all::{GetMessages, MessageId, Timestamp};
-use tokio::sync::{broadcast, Mutex};
+use tokio::sync::{broadcast, Mutex, Semaphore};
 
 use crate::{
   client::DiscordClient,
@@ -18,7 +18,8 @@ pub struct DiscordChannel {
   channel_id: Snowflake,
   receiver: broadcast::Receiver<DiscordMessage>,
   client: Arc<DiscordClient>,
-  cache: Arc<Mutex<AsyncListCache<DiscordChannel>>>,
+  cache: Arc<Mutex<AsyncListCache<DiscordMessage>>>,
+  blocker: Semaphore,
 }
 
 impl DiscordChannel {
@@ -32,6 +33,7 @@ impl DiscordChannel {
       receiver,
       client,
       cache: Arc::new(Mutex::new(AsyncListCache::new())),
+      blocker: Semaphore::new(1),
     }
   }
 }
@@ -89,6 +91,8 @@ impl AsyncList for DiscordChannel {
   }
 
   async fn find(&self, identifier: &Snowflake) -> Option<Self::Content> {
+    let permit = self.blocker.acquire().await;
+
     let lock = self.cache.lock().await;
     let cache_value = lock.find(identifier);
 
@@ -96,10 +100,16 @@ impl AsyncList for DiscordChannel {
       return Some(v);
     }
 
-    self.client.get_specific_message(self.channel_id, *identifier).await.map(|v| DiscordMessage::from_serenity(&v))
+    let result = self.client.get_specific_message(self.channel_id, *identifier).await.map(|v| DiscordMessage::from_serenity(&v));
+
+    drop(permit);
+
+    result
   }
 
   async fn get(&self, index: AsyncListIndex<Snowflake>) -> Option<AsyncListResult<Self::Content>> {
+    let permit = self.blocker.acquire().await;
+
     let mut lock = self.cache.lock().await;
     let cache_value = lock.get(index.clone());
 
@@ -179,7 +189,7 @@ impl AsyncList for DiscordChannel {
           .client
           .get_messages(
             self.channel_id,
-            GetMessages::new().after(MessageId::new(message.content)).limit(DISCORD_MESSAGE_BATCH_SIZE),
+            GetMessages::new().before(MessageId::new(message.content)).limit(DISCORD_MESSAGE_BATCH_SIZE),
           )
           .await;
         let mut current_index: Snowflake = message;
@@ -202,6 +212,8 @@ impl AsyncList for DiscordChannel {
       }
     };
 
+    drop(permit);
+
     result.map(|v| AsyncListResult {
       content: v,
       is_top,
@@ -219,6 +231,7 @@ impl Clone for DiscordChannel {
       receiver: self.receiver.resubscribe(),
       client: self.client.clone(),
       cache: self.cache.clone(),
+      blocker: Semaphore::new(1),
     }
   }
 }

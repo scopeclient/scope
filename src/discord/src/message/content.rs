@@ -1,6 +1,6 @@
 use gpui::{div, IntoElement, ParentElement, RenderOnce, Styled, WindowContext};
 
-#[derive(Clone, IntoElement)]
+#[derive(Clone, IntoElement, Debug)]
 pub struct DiscordMessageContent {
   pub content: String,
   pub is_pending: bool,
