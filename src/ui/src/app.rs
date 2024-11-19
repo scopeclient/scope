@@ -34,10 +34,12 @@ impl App {
 
         let view = context.new_view(|cx| ChannelView::<DiscordChannel>::create(cx, channel)).unwrap();
 
-        async_channel.update(&mut context, |a, b| {
-          *a = Some(view);
-          b.notify()
-        });
+        async_channel
+          .update(&mut context, |a, b| {
+            *a = Some(view);
+            b.notify()
+          })
+          .unwrap();
       })
       .detach();
 

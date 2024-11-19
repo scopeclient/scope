@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use gpui::{div, list, rgb, AppContext, Context, IntoElement, ListAlignment, ListState, Model, ParentElement, Pixels, Render, Styled, ViewContext};
+use gpui::{div, list, rgb, Context, IntoElement, ListAlignment, ListState, Model, ParentElement, Pixels, Render, Styled, ViewContext};
 use scope_chat::{
   async_list::{AsyncListIndex, AsyncListItem},
   channel::Channel,
@@ -87,6 +87,32 @@ where
       list_state,
       list_state_dirty,
     }
+  }
+
+  pub fn append_message(&mut self, cx: &mut ViewContext<Self>, message: T::Message) {
+    self.cache.update(cx, |borrow, cx| {
+      for item in borrow.iter_mut() {
+        if let Element::Resolved(Some(haystack)) = item {
+          if haystack.get_nonce() == message.get_nonce() {
+            *item = Element::Resolved(Some(message));
+
+            cx.notify();
+            return;
+          }
+        }
+      }
+
+      if let Some(Element::Resolved(None)) = borrow.last() {
+        borrow.pop();
+      }
+
+      borrow.push(Element::Resolved(Some(message)));
+      borrow.push(Element::Resolved(None));
+
+      cx.update_model(&self.list_state_dirty, |v, _| *v = Some(ListStateDirtyState { new_items: 1, shift: 0 }));
+
+      cx.notify();
+    });
   }
 
   fn list_state(&self, cx: &mut gpui::ViewContext<Self>) -> ListState {

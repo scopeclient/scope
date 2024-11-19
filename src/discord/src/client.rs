@@ -4,9 +4,7 @@ use std::{
 };
 
 use serenity::{
-  all::{
-    Cache, ChannelId, Context, CreateMessage, Event, EventHandler, GatewayIntents, GetMessages, Http, Message, MessageId, Nonce, RawEventHandler,
-  },
+  all::{Cache, ChannelId, Context, CreateMessage, Event, EventHandler, GatewayIntents, GetMessages, Http, Message, MessageId, RawEventHandler},
   async_trait,
 };
 use tokio::sync::{broadcast, RwLock};
@@ -15,7 +13,6 @@ use crate::{
   channel::DiscordChannel,
   message::{
     author::{DiscordMessageAuthor, DisplayName},
-    content::DiscordMessageContent,
     DiscordMessage,
   },
   snowflake::Snowflake,
