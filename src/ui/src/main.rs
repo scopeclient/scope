@@ -26,12 +26,20 @@ impl AssetSource for Assets {
   }
 }
 
-actions!(main_menu, [Quit]);
-
 fn init(_: Arc<AppState>, cx: &mut AppContext) -> Result<()> {
   components::init(cx);
 
-  cx.bind_keys([KeyBinding::new("cmd-q", Quit, None)]);
+  if cfg!(target_os = "macos") {
+    cx.bind_keys(vec![KeyBinding::new("cmd-q", actions::Quit, None)]);
+    cx.bind_keys(vec![KeyBinding::new("cmd-h", actions::Hide, None)]);
+  } else {
+    cx.bind_keys(vec![KeyBinding::new("ctrl-h", actions::Hide, None)]);
+  }
+
+  cx.set_menus(app_menus());
+
+  cx.on_action(|_: &actions::Quit, cx| cx.quit());
+  cx.on_action(|_: &actions::Hide, cx| cx.hide());
 
   Ok(())
 }
@@ -49,11 +57,6 @@ async fn main() {
       log::error!("{}", e);
       return;
     }
-
-    cx.bind_keys(vec![KeyBinding::new("cmd-q", actions::Quit, None)]);
-
-    cx.set_menus(app_menus());
-    cx.on_action(|_: &Quit, cx| cx.quit());
 
     let mut theme = Theme::from(ThemeColor::dark());
     theme.mode = ThemeMode::Dark;

@@ -1,3 +1,3 @@
 use gpui::actions;
 
-actions!(scope, [Quit]);
+actions!(scope, [Quit, Hide]);
