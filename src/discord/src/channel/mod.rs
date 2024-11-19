@@ -63,6 +63,8 @@ impl Channel for DiscordChannel {
   }
 }
 
+const DISCORD_MESSAGE_BATCH_SIZE: u8 = 5;
+
 impl AsyncList for DiscordChannel {
   async fn bounded_at_bottom_by(&self) -> Option<Snowflake> {
     let lock = self.cache.lock().await;
@@ -98,8 +100,6 @@ impl AsyncList for DiscordChannel {
   }
 
   async fn get(&self, index: AsyncListIndex<Snowflake>) -> Option<AsyncListResult<Self::Content>> {
-    println!("Start");
-
     let mut lock = self.cache.lock().await;
     let cache_value = lock.get(index.clone());
 
@@ -109,7 +109,7 @@ impl AsyncList for DiscordChannel {
       return None;
     }
 
-    let mut result: Option<DiscordMessage> = None;
+    let result: Option<DiscordMessage>;
     let mut is_top = false;
     let mut is_bottom = false;
 
@@ -120,13 +120,13 @@ impl AsyncList for DiscordChannel {
           unimplemented!()
         }
 
-        let v = self.client.get_messages(self.channel_id, GetMessages::new().limit(50)).await;
+        let v = self.client.get_messages(self.channel_id, GetMessages::new().limit(DISCORD_MESSAGE_BATCH_SIZE)).await;
 
-        let is_end = v.len() == 50;
+        let is_end = v.len() == DISCORD_MESSAGE_BATCH_SIZE as usize;
         is_bottom = true;
         is_top = v.len() == 1;
 
-        result = v.get(0).map(DiscordMessage::from_serenity);
+        result = v.first().map(DiscordMessage::from_serenity);
 
         let mut iter = v.iter();
 
@@ -149,13 +149,19 @@ impl AsyncList for DiscordChannel {
       }
       AsyncListIndex::After(message) => {
         // NEWEST first
-        let v = self.client.get_messages(self.channel_id, GetMessages::new().after(MessageId::new(message.content)).limit(50)).await;
+        let v = self
+          .client
+          .get_messages(
+            self.channel_id,
+            GetMessages::new().after(MessageId::new(message.content)).limit(DISCORD_MESSAGE_BATCH_SIZE),
+          )
+          .await;
         let mut current_index: Snowflake = message;
 
-        let is_end = v.len() == 50;
+        let is_end = v.len() == DISCORD_MESSAGE_BATCH_SIZE as usize;
         is_bottom = is_end;
 
-        result = Some(DiscordMessage::from_serenity(v.get(0).unwrap()));
+        result = v.last().map(DiscordMessage::from_serenity);
 
         for message in v.iter().rev() {
           lock.insert(
@@ -169,13 +175,19 @@ impl AsyncList for DiscordChannel {
         }
       }
       AsyncListIndex::Before(message) => {
-        let v = self.client.get_messages(self.channel_id, GetMessages::new().after(MessageId::new(message.content)).limit(50)).await;
+        let v = self
+          .client
+          .get_messages(
+            self.channel_id,
+            GetMessages::new().after(MessageId::new(message.content)).limit(DISCORD_MESSAGE_BATCH_SIZE),
+          )
+          .await;
         let mut current_index: Snowflake = message;
 
-        let is_end = v.len() == 50;
+        let is_end = v.len() == DISCORD_MESSAGE_BATCH_SIZE as usize;
         is_top = is_end;
 
-        result = Some(DiscordMessage::from_serenity(v.get(0).unwrap()));
+        result = v.first().map(DiscordMessage::from_serenity);
 
         for message in v {
           lock.insert(
@@ -189,8 +201,6 @@ impl AsyncList for DiscordChannel {
         }
       }
     };
-
-    println!("End");
 
     result.map(|v| AsyncListResult {
       content: v,

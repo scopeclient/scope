@@ -15,6 +15,13 @@ pub struct AsyncListComponentElementView<E: AsyncListItem + 'static> {
 }
 
 impl<E: AsyncListItem> AsyncListComponentElementView<E> {
+  pub fn new_resolved(ctx: &mut ViewContext<Self>, renderer: impl (Fn(&E) -> AnyElement) + 'static, value: E) -> Self {
+    AsyncListComponentElementView {
+      element: ctx.new_model(|_| AsyncListComponentElement::Resolved(value)),
+      renderer: Box::new(renderer),
+    }
+  }
+
   pub fn new(
     ctx: &mut ViewContext<'_, Self>,
     renderer: impl (Fn(&E) -> AnyElement) + 'static,

@@ -98,7 +98,7 @@ impl DiscordClient {
   }
 
   pub async fn get_messages(&self, channel_id: Snowflake, builder: GetMessages) -> Vec<Message> {
-    println!("Discord: get_messages");
+    println!("Discord: get_messages: {:?}", builder);
     // FIXME: proper error handling
     ChannelId::new(channel_id.content).messages(self.discord().http.clone(), builder).await.unwrap()
   }

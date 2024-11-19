@@ -5,11 +5,16 @@ use std::{cell::RefCell, rc::Rc};
 
 use element::{AsyncListComponentElement, AsyncListComponentElementView};
 use gpui::{
-  div, list, rgb, AnyElement, AppContext, Context, IntoElement, ListAlignment, ListState, Model, ParentElement, Pixels, Render, Styled, View,
-  VisualContext,
+  div, list, rgb, AnyElement, AppContext, Context, IntoElement, ListAlignment, ListOffset, ListState, Model, ParentElement, Pixels, Render, Styled,
+  View, VisualContext,
 };
 use marker::Marker;
 use scope_chat::async_list::{AsyncList, AsyncListIndex, AsyncListItem};
+
+#[derive(Clone, Copy)]
+struct ListStateDirtyState {
+  pub new_items: usize,
+}
 
 pub struct AsyncListComponent<T: AsyncList>
 where
@@ -23,6 +28,9 @@ where
   bounds_flags: Model<(bool, bool)>,
 
   renderer: Rc<RefCell<dyn Fn(&T::Content) -> AnyElement>>,
+
+  list_state: Model<Option<ListState>>,
+  list_state_dirty: Model<Option<ListStateDirtyState>>,
 }
 
 pub enum StartAt {
@@ -41,6 +49,8 @@ where
       overdraw,
       bounds_flags: cx.new_model(|_| (false, false)),
       renderer: Rc::new(RefCell::new(renderer)),
+      list_state: cx.new_model(|_| None),
+      list_state_dirty: cx.new_model(|_| None),
     }
   }
 
@@ -70,11 +80,39 @@ where
     )
   }
 
+  fn get_or_refresh_list_state(&self, cx: &mut gpui::ViewContext<Self>) -> ListState {
+    let list_state_dirty = self.list_state_dirty.read(cx).clone();
+
+    if list_state_dirty.is_none() {
+      if let Some(list_state) = self.list_state.read(cx) {
+        return list_state.clone();
+      }
+    }
+
+    let new_list_state = self.list_state(cx);
+    let old_list_state = self.list_state.read(cx);
+
+    if let Some(old_list_state) = old_list_state {
+      let mut new_scroll_top = old_list_state.logical_scroll_top();
+
+      if let Some(list_state_dirty) = list_state_dirty {
+        new_scroll_top.item_ix += list_state_dirty.new_items;
+      }
+
+      new_list_state.scroll_to(new_scroll_top);
+    };
+
+    self.list_state.update(cx, |v, _| *v = Some(new_list_state.clone()));
+
+    new_list_state
+  }
+
   fn update(&mut self, cx: &mut gpui::ViewContext<Self>) {
+    let mut dirty = None;
+
     // update bottom
     'update_bottom: {
       if self.bounds_flags.read(cx).0 {
-        println!("Updating Bottom!");
         let mut borrow = self.cache.borrow_mut();
         let last = borrow.last();
 
@@ -92,13 +130,13 @@ where
 
         let renderer = self.renderer.clone();
 
-        let len = borrow.len();
-
         borrow.push(cx.new_view(move |cx| {
           AsyncListComponentElementView::new(cx, move |rf| (renderer.borrow())(rf), async move { list.borrow_mut().get(index).await })
         }));
 
-        cx.on_next_frame(|v, cx| cx.notify());
+        cx.on_next_frame(|_, cx| cx.notify());
+
+        dirty = Some(ListStateDirtyState { new_items: 1 });
       }
     }
 
@@ -120,8 +158,6 @@ where
 
         let list = self.list.clone();
 
-        println!("Pushed to top");
-
         let renderer = self.renderer.clone();
 
         borrow.insert(
@@ -131,8 +167,14 @@ where
           }),
         );
 
-        cx.on_next_frame(|v, cx| cx.notify());
+        cx.on_next_frame(|_, cx| cx.notify());
+
+        dirty = dirty.or(Some(ListStateDirtyState { new_items: 0 }));
       }
+    }
+
+    if dirty.is_some() {
+      self.list_state_dirty.update(cx, |v, _| *v = dirty);
     }
 
     self.bounds_flags.update(cx, |v, _| *v = (false, false))
@@ -141,10 +183,8 @@ where
 
 impl<T: AsyncList + 'static> Render for AsyncListComponent<T> {
   fn render(&mut self, cx: &mut gpui::ViewContext<Self>) -> impl gpui::IntoElement {
-    println!("Rendering");
-
     self.update(cx);
 
-    div().w_full().h_full().child(list(self.list_state(cx)).w_full().h_full())
+    div().w_full().h_full().child(list(self.get_or_refresh_list_state(cx)).w_full().h_full())
   }
 }
