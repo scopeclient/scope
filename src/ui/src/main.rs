@@ -69,6 +69,7 @@ async fn main() {
 
     let opts = WindowOptions {
       window_decorations: Some(WindowDecorations::Client),
+      window_min_size: Some(size(Pixels(800.0), Pixels(600.0))),
       titlebar: Some(TitlebarOptions {
         appears_transparent: true,
         title: Some(SharedString::new_static("scope")),
