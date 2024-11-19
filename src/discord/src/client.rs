@@ -1,27 +1,30 @@
 use std::{
-  collections::HashMap,
-  sync::{Arc, OnceLock},
+  collections::HashMap, sync::{Arc, OnceLock}
 };
 
 use serenity::{
-  all::{ChannelId, Context, CreateMessage, Event, EventHandler, GatewayIntents, Message, Nonce, RawEventHandler},
-  async_trait,
+  all::{Cache, ChannelId, Context, CreateMessage, Event, EventHandler, GatewayIntents, Http, Message, Nonce, RawEventHandler}, async_trait
 };
 use tokio::sync::{broadcast, RwLock};
 
 use crate::{
   message::{
-    author::{DiscordMessageAuthor, DisplayName},
-    content::DiscordMessageContent,
-    DiscordMessage,
-  },
-  snowflake::Snowflake,
+    author::{DiscordMessageAuthor, DisplayName}, content::DiscordMessageContent, DiscordMessage
+  }, snowflake::Snowflake
 };
+
+#[allow(dead_code)]
+struct SerenityClient {
+  // enable this when we enable the serenity[voice] feature
+  // voice_manager: Option<Arc<dyn VoiceGatewayManager>>
+  http: Arc<Http>,
+  cache: Arc<Cache>,
+}
 
 #[derive(Default)]
 pub struct DiscordClient {
   channel_message_event_handlers: RwLock<HashMap<Snowflake, Vec<broadcast::Sender<DiscordMessage>>>>,
-  client: OnceLock<serenity::Client>,
+  client: OnceLock<SerenityClient>,
   user: OnceLock<DiscordMessageAuthor>,
 }
 
@@ -35,16 +38,22 @@ impl DiscordClient {
       .await
       .expect("Error creating client");
 
-    if let Err(why) = discord.start().await {
-      panic!("Client error: {why:?}");
-    }
+    let _ = client.client.set(SerenityClient {
+      // voice_manager: discord.voice_manager.clone(),
+      cache: discord.cache.clone(),
+      http: discord.http.clone(),
+    });
 
-    let _ = client.client.set(discord);
+    tokio::spawn(async move {
+      if let Err(why) = discord.start().await {
+        panic!("Client error: {why:?}");
+      }
+    });
 
     client
   }
 
-  fn discord(&self) -> &serenity::Client {
+  fn discord(&self) -> &SerenityClient {
     self.client.get().unwrap()
   }
 
