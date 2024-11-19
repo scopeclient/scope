@@ -36,10 +36,6 @@ fn init(_: Arc<AppState>, cx: &mut AppContext) -> Result<()> {
   Ok(())
 }
 
-fn quit(_: &actions::Quit, cx: &mut AppContext) {
-  cx.quit();
-}
-
 #[tokio::main]
 async fn main() {
   env_logger::init();
@@ -55,8 +51,9 @@ async fn main() {
     }
 
     cx.bind_keys(vec![KeyBinding::new("cmd-q", actions::Quit, None)]);
-    cx.on_action(quit);
+
     cx.set_menus(app_menus());
+    cx.on_action(|_: &Quit, cx| cx.quit());
 
     let mut theme = Theme::from(ThemeColor::dark());
     theme.mode = ThemeMode::Dark;
