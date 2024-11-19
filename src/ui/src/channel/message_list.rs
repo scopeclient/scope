@@ -118,7 +118,7 @@ where
   fn list_state(&self, cx: &mut gpui::ViewContext<Self>) -> ListState {
     let bounds_model = self.bounds_flags.clone();
 
-    let list_state_dirty = self.list_state_dirty.read(cx).clone();
+    let list_state_dirty = *self.list_state_dirty.read(cx);
 
     let mut added_elements_bottom = 0;
     let mut shift = 0;

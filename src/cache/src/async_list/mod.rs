@@ -13,6 +13,12 @@ pub struct AsyncListCache<I: AsyncListItem> {
   cache_map: HashMap<I::Identifier, I>,
 }
 
+impl<I: AsyncListItem> Default for AsyncListCache<I> {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl<I: AsyncListItem> AsyncListCache<I> {
   pub fn new() -> Self {
     Self {

@@ -1,9 +1,12 @@
 use std::fmt::Debug;
 
+#[allow(unused_imports)]
 use scope_chat::async_list::{AsyncListIndex, AsyncListItem, AsyncListResult};
 
+#[allow(unused_imports)]
 use crate::async_list::{refcacheslice::Exists, AsyncListCache};
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 struct ListItem(i64);
 
@@ -15,6 +18,7 @@ impl AsyncListItem for ListItem {
   }
 }
 
+#[allow(dead_code)]
 fn assert_query_exists<I: PartialEq + Eq + Debug>(result: Exists<AsyncListResult<I>>, item: I, is_top_in: bool, is_bottom_in: bool) {
   if let Exists::Yes(AsyncListResult { content, is_top, is_bottom }) = result {
     assert_eq!(content, item);

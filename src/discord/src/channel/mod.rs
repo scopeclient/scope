@@ -112,7 +112,7 @@ impl AsyncList for DiscordChannel {
   async fn get(&self, index: AsyncListIndex<Snowflake>) -> Option<AsyncListResult<Self::Content>> {
     let permit = self.blocker.acquire().await;
     let mut lock = self.cache.lock().await;
-    let cache_value = lock.get(index.clone());
+    let cache_value = lock.get(index);
 
     if let Exists::Yes(v) = cache_value {
       return Some(v);
@@ -149,7 +149,7 @@ impl AsyncList for DiscordChannel {
           lock.append_bottom(msg);
 
           for message in iter {
-            let msg = DiscordMessage::from_serenity(&message);
+            let msg = DiscordMessage::from_serenity(message);
             let nid = msg.get_list_identifier();
 
             lock.insert(AsyncListIndex::Before(id), msg, false, is_end);
@@ -205,7 +205,7 @@ impl AsyncList for DiscordChannel {
         for (message, index) in v.iter().zip(0..) {
           lock.insert(
             AsyncListIndex::Before(current_index),
-            DiscordMessage::from_serenity(&message),
+            DiscordMessage::from_serenity(message),
             false,
             is_end && index == (v.len() - 1),
           );

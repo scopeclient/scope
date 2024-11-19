@@ -13,6 +13,12 @@ pub struct CacheReferences<I: Clone + Eq + PartialEq> {
   bottom_bounded_identifier: Option<u64>,
 }
 
+impl<I: Clone + Eq + PartialEq> Default for CacheReferences<I> {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl<I: Clone + Eq + PartialEq> CacheReferences<I> {
   pub fn new() -> Self {
     Self {
@@ -71,7 +77,7 @@ impl<I: Clone + Eq + PartialEq> CacheReferences<I> {
       }
     }
 
-    return Exists::Unknown;
+    Exists::Unknown
   }
 
   /// you mut **KNOW** that the item you are inserting is not:
@@ -103,7 +109,7 @@ impl<I: Clone + Eq + PartialEq> CacheReferences<I> {
       }
     }
 
-    if segments.len() == 0 {
+    if segments.is_empty() {
       let id = rand::random();
 
       self.dense_segments.insert(
@@ -159,7 +165,7 @@ impl<I: Clone + Eq + PartialEq> CacheReferences<I> {
 
       merged.push(item);
 
-      merged.extend(right.item_references.into_iter());
+      merged.extend(right.item_references);
 
       let id = rand::random();
 
