@@ -1,16 +1,21 @@
 use std::{
-  collections::HashMap, sync::{Arc, OnceLock}
+  collections::HashMap,
+  sync::{Arc, OnceLock},
 };
 
 use serenity::{
-  all::{Cache, ChannelId, Context, CreateMessage, Event, EventHandler, GatewayIntents, Http, Message, Nonce, RawEventHandler}, async_trait
+  all::{Cache, ChannelId, Context, CreateMessage, Event, EventHandler, GatewayIntents, GetMessages, Http, Message, MessageId, RawEventHandler},
+  async_trait,
 };
 use tokio::sync::{broadcast, RwLock};
 
 use crate::{
+  channel::DiscordChannel,
   message::{
-    author::{DiscordMessageAuthor, DisplayName}, content::DiscordMessageContent, DiscordMessage
-  }, snowflake::Snowflake
+    author::{DiscordMessageAuthor, DisplayName},
+    DiscordMessage,
+  },
+  snowflake::Snowflake,
 };
 
 #[allow(dead_code)]
@@ -26,6 +31,7 @@ pub struct DiscordClient {
   channel_message_event_handlers: RwLock<HashMap<Snowflake, Vec<broadcast::Sender<DiscordMessage>>>>,
   client: OnceLock<SerenityClient>,
   user: OnceLock<DiscordMessageAuthor>,
+  channels: RwLock<HashMap<Snowflake, Arc<DiscordChannel>>>,
 }
 
 impl DiscordClient {
@@ -65,6 +71,22 @@ impl DiscordClient {
     self.channel_message_event_handlers.write().await.entry(channel).or_default().push(sender);
   }
 
+  pub async fn channel(self: Arc<Self>, channel_id: Snowflake) -> Arc<DiscordChannel> {
+    let self_clone = self.clone();
+    let mut channels = self_clone.channels.write().await;
+    let existing = channels.get(&channel_id);
+
+    if let Some(existing) = existing {
+      return existing.clone();
+    }
+
+    let new = Arc::new(DiscordChannel::new(self, channel_id).await);
+
+    channels.insert(channel_id, new.clone());
+
+    new
+  }
+
   pub async fn send_message(&self, channel_id: Snowflake, content: String, nonce: String) {
     ChannelId::new(channel_id.content)
       .send_message(
@@ -73,6 +95,18 @@ impl DiscordClient {
       )
       .await
       .unwrap();
+  }
+
+  pub async fn get_messages(&self, channel_id: Snowflake, builder: GetMessages) -> Vec<Message> {
+    println!("Discord: get_messages: {:?}", builder);
+    // FIXME: proper error handling
+    ChannelId::new(channel_id.content).messages(self.discord().http.clone(), builder).await.unwrap()
+  }
+
+  pub async fn get_specific_message(&self, channel_id: Snowflake, message_id: Snowflake) -> Option<Message> {
+    println!("Discord: get_specific_messages");
+    // FIXME: proper error handling
+    Some(ChannelId::new(channel_id.content).message(self.discord().http.clone(), MessageId::new(message_id.content)).await.unwrap())
   }
 }
 
@@ -119,23 +153,7 @@ impl EventHandler for DiscordClient {
 
     if let Some(vec) = self.channel_message_event_handlers.read().await.get(&snowflake) {
       for sender in vec {
-        let _ = sender.send(DiscordMessage {
-          id: snowflake,
-          author: DiscordMessageAuthor {
-            display_name: DisplayName(msg.author.name.clone()),
-            icon: msg.author.avatar_url().unwrap_or(msg.author.default_avatar_url()),
-            id: msg.author.id.to_string(),
-          },
-          content: DiscordMessageContent {
-            content: msg.content.clone(),
-            is_pending: false,
-          },
-          nonce: msg.nonce.clone().map(|n| match n {
-            Nonce::Number(n) => n.to_string(),
-            Nonce::String(s) => s,
-          }),
-          creation_time: msg.timestamp,
-        });
+        let _ = sender.send(DiscordMessage::from_serenity(&msg));
       }
     }
   }

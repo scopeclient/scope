@@ -845,6 +845,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "catty"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dcf0adb3cc1c06945672f8dcc827e42497ac6d0aff49f459ec918132b82a5cbc"
+dependencies = [
+ "spin",
+]
+
+[[package]]
 name = "cbc"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5432,6 +5441,7 @@ dependencies = [
 name = "scope"
 version = "0.1.0"
 dependencies = [
+ "catty",
  "chrono",
  "dotenv",
  "env_logger",
@@ -5440,6 +5450,7 @@ dependencies = [
  "random-string",
  "reqwest_client",
  "rust-embed",
+ "scope-backend-cache",
  "scope-backend-discord",
  "scope-chat",
  "scope-util",
@@ -5448,11 +5459,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "scope-backend-cache"
+version = "0.1.0"
+dependencies = [
+ "gpui",
+ "rand 0.8.5",
+ "scope-chat",
+ "tokio",
+]
+
+[[package]]
 name = "scope-backend-discord"
 version = "0.1.0"
 dependencies = [
  "chrono",
  "gpui",
+ "scope-backend-cache",
  "scope-chat",
  "serenity",
  "tokio",

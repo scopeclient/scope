@@ -1,7 +1,7 @@
 use gpui::{div, Element, IntoElement, ParentElement, RenderOnce, Styled, WindowContext};
 use scope_chat::message::MessageAuthor;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DiscordMessageAuthor {
   pub display_name: DisplayName,
   pub icon: String,
@@ -33,7 +33,7 @@ impl MessageAuthor for DiscordMessageAuthor {
   }
 }
 
-#[derive(Clone, IntoElement)]
+#[derive(Clone, IntoElement, Debug)]
 pub struct DisplayName(pub String);
 
 impl RenderOnce for DisplayName {

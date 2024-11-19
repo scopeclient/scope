@@ -1,5 +1,5 @@
 [package]
-name = "scope-backend-discord"
+name = "scope-backend-cache"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,8 +8,6 @@ gpui = { git = "https://github.com/huacnlee/zed.git", branch = "export-platform-
   "http_client",
   "font-kit",
 ] }
+rand = "0.8.5"
 scope-chat = { version = "0.1.0", path = "../chat" }
-serenity = { git = "https://github.com/scopeclient/serenity", version = "0.13.0" }
 tokio = "1.41.1"
-chrono.workspace = true
-scope-backend-cache = { version = "0.1.0", path = "../cache" }

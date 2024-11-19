@@ -1,11 +1,11 @@
 use components::theme::ActiveTheme;
 use gpui::{div, img, rgb, Context, Model, ParentElement, Render, Styled, View, ViewContext, VisualContext};
-use scope_backend_discord::{channel::DiscordChannel, client::DiscordClient, message::DiscordMessage, snowflake::Snowflake};
+use scope_backend_discord::{channel::DiscordChannel, client::DiscordClient, snowflake::Snowflake};
 
 use crate::channel::ChannelView;
 
 pub struct App {
-  channel: Model<Option<View<ChannelView<DiscordMessage>>>>,
+  channel: Model<Option<View<ChannelView<DiscordChannel>>>>,
 }
 
 impl App {
@@ -32,12 +32,14 @@ impl App {
         )
         .await;
 
-        let view = context.new_view(|cx| ChannelView::<DiscordMessage>::create(cx, channel)).unwrap();
+        let view = context.new_view(|cx| ChannelView::<DiscordChannel>::create(cx, channel)).unwrap();
 
-        async_channel.update(&mut context, |a, b| {
-          *a = Some(view);
-          b.notify()
-        })
+        async_channel
+          .update(&mut context, |a, b| {
+            *a = Some(view);
+            b.notify()
+          })
+          .unwrap();
       })
       .detach();
 

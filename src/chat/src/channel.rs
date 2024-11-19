@@ -1,8 +1,8 @@
 use tokio::sync::broadcast;
 
-use crate::message::Message;
+use crate::{async_list::AsyncList, message::Message};
 
-pub trait Channel: Clone {
+pub trait Channel: AsyncList<Content = Self::Message> + Send + Sync + Clone {
   type Message: Message;
 
   fn get_receiver(&self) -> broadcast::Receiver<Self::Message>;
