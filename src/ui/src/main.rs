@@ -87,7 +87,10 @@ async fn main() {
       }
 
       None => {
-        cx.open_window(WindowOptions::default(), |cx| crate::surfaces::welcome::Welcome {}).unwrap();
+        cx.open_window(WindowOptions::default(), |cx| {
+          cx.new_view(|cx| crate::surfaces::welcome::Welcome::new(cx))
+        })
+        .unwrap();
       }
     }
   });

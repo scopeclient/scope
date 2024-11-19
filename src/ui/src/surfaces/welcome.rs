@@ -1,13 +1,11 @@
 use components::theme::ActiveTheme;
 use gpui::{div, ParentElement, Render, Styled, ViewContext};
 
-pub struct Welcome {
-  ctx: &mut ViewContext<'_, Self>,
-}
+pub struct Welcome {}
 
 impl Welcome {
   pub fn new(ctx: &mut ViewContext<'_, Self>) -> Welcome {
-    Welcome { ctx }
+    Welcome {}
   }
 }
 
