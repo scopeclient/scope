@@ -37,7 +37,7 @@ impl App {
         async_channel.update(&mut context, |a, b| {
           *a = Some(view);
           b.notify()
-        })
+        });
       })
       .detach();
 

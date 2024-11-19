@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use scope_backend_cache::async_list::{refcacheslice::Exists, AsyncListCache};
 use scope_chat::{
@@ -96,6 +96,8 @@ impl AsyncList for DiscordChannel {
     let lock = self.cache.lock().await;
     let cache_value = lock.find(identifier);
 
+    drop(lock);
+
     if let Some(v) = cache_value {
       return Some(v);
     }
@@ -109,7 +111,6 @@ impl AsyncList for DiscordChannel {
 
   async fn get(&self, index: AsyncListIndex<Snowflake>) -> Option<AsyncListResult<Self::Content>> {
     let permit = self.blocker.acquire().await;
-
     let mut lock = self.cache.lock().await;
     let cache_value = lock.get(index.clone());
 
@@ -169,16 +170,16 @@ impl AsyncList for DiscordChannel {
         let mut current_index: Snowflake = message;
 
         let is_end = v.len() == DISCORD_MESSAGE_BATCH_SIZE as usize;
-        is_bottom = is_end;
+        is_bottom = is_end && v.len() == 1;
 
         result = v.last().map(DiscordMessage::from_serenity);
 
-        for message in v.iter().rev() {
+        for (message, index) in v.iter().rev().zip(0..) {
           lock.insert(
             AsyncListIndex::After(current_index),
             DiscordMessage::from_serenity(message),
             false,
-            is_end,
+            is_end && index == (v.len() - 1),
           );
 
           current_index = Snowflake { content: message.id.get() }
@@ -194,17 +195,19 @@ impl AsyncList for DiscordChannel {
           .await;
         let mut current_index: Snowflake = message;
 
+        println!("Discord gave us {:?} messages (out of {:?})", v.len(), DISCORD_MESSAGE_BATCH_SIZE);
+
         let is_end = v.len() == DISCORD_MESSAGE_BATCH_SIZE as usize;
-        is_top = is_end;
+        is_top = is_end && v.len() == 1;
 
         result = v.first().map(DiscordMessage::from_serenity);
 
-        for message in v {
+        for (message, index) in v.iter().zip(0..) {
           lock.insert(
             AsyncListIndex::Before(current_index),
             DiscordMessage::from_serenity(&message),
             false,
-            is_end,
+            is_end && index == (v.len() - 1),
           );
 
           current_index = Snowflake { content: message.id.get() }
@@ -213,6 +216,7 @@ impl AsyncList for DiscordChannel {
     };
 
     drop(permit);
+    drop(lock);
 
     result.map(|v| AsyncListResult {
       content: v,

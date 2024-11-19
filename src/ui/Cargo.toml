@@ -30,6 +30,7 @@ log = "0.4.22"
 random-string = "1.1.0"
 rust-embed = "8.5.0"
 chrono.workspace = true
+catty = "0.1.5"
 
 [features]
 default = ["gpui/x11"]

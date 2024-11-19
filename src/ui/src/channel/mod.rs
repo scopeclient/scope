@@ -21,22 +21,21 @@ impl<C: Channel + 'static> ChannelView<C> {
     let async_model = list_view.clone();
     let mut async_ctx = ctx.to_async();
 
-    ctx
-      .foreground_executor()
-      .spawn(async move {
-        loop {
-          let message = channel_listener.recv().await.unwrap();
-
-          async_model
-            .update(&mut async_ctx, |data, ctx| {
-              // data.add_external_message(message);
-              todo!();
-              ctx.notify();
-            })
-            .unwrap();
-        }
-      })
-      .detach();
+    // ctx
+    // .foreground_executor()
+    // .spawn(async move {
+    //   loop {
+    //     let message = channel_listener.recv().await.unwrap();
+    //     async_model
+    //       .update(&mut async_ctx, |data, ctx| {
+    //         // data.add_external_message(message);
+    //         todo!();
+    //         ctx.notify();
+    //       })
+    //       .unwrap();
+    //   }
+    // })
+    // .detach();
 
     let message_input = ctx.new_view(|cx| {
       let mut input = components::input::TextInput::new(cx);

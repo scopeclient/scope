@@ -4,7 +4,10 @@ pub trait AsyncList {
   type Content: AsyncListItem;
 
   fn bounded_at_top_by(&self) -> impl Future<Output = Option<<Self::Content as AsyncListItem>::Identifier>>;
-  fn get(&self, index: AsyncListIndex<<Self::Content as AsyncListItem>::Identifier>) -> impl Future<Output = Option<AsyncListResult<Self::Content>>>;
+  fn get(
+    &self,
+    index: AsyncListIndex<<Self::Content as AsyncListItem>::Identifier>,
+  ) -> impl Future<Output = Option<AsyncListResult<Self::Content>>> + Send;
   fn find(&self, identifier: &<Self::Content as AsyncListItem>::Identifier) -> impl Future<Output = Option<Self::Content>>;
   fn bounded_at_bottom_by(&self) -> impl Future<Output = Option<<Self::Content as AsyncListItem>::Identifier>>;
 }
@@ -41,6 +44,7 @@ impl<I: Clone + Debug> Debug for AsyncListIndex<I> {
   }
 }
 
+#[derive(Clone)]
 pub struct AsyncListResult<T> {
   pub content: T,
   pub is_top: bool,

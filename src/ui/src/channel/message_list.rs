@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::sync::Arc;
 
 use gpui::{div, list, rgb, AppContext, Context, IntoElement, ListAlignment, ListState, Model, ParentElement, Pixels, Render, Styled};
 use scope_chat::{
@@ -6,6 +6,7 @@ use scope_chat::{
   channel::Channel,
   message::Message,
 };
+use tokio::sync::RwLock;
 
 use super::message::{message, MessageGroup};
 
@@ -28,7 +29,7 @@ pub struct MessageListComponent<C: Channel>
 where
   C::Content: 'static,
 {
-  list: Rc<RefCell<C>>,
+  list: Arc<RwLock<C>>,
   cache: Model<Vec<Element<Option<C::Content>>>>,
   overdraw: Pixels,
 
@@ -50,7 +51,7 @@ where
 {
   pub fn create(cx: &mut AppContext, list: T, overdraw: Pixels) -> Self {
     MessageListComponent {
-      list: Rc::new(RefCell::new(list)),
+      list: Arc::new(RwLock::new(list)),
       cache: cx.new_model(|_| Default::default()),
       overdraw,
       bounds_flags: cx.new_model(|_| BoundFlags { before: false, after: false }),
@@ -165,13 +166,20 @@ where
         };
 
         borrow.push(Element::Unresolved);
+        cx.notify();
 
         let insert_index = borrow.len() - 1;
         let mut async_ctx = cx.to_async();
 
         cx.foreground_executor()
           .spawn(async move {
-            let v = list_handle.borrow().get(index.clone()).await;
+            let (sender, receiver) = catty::oneshot();
+
+            tokio::spawn(async move {
+              sender.send(list_handle.read().await.get(index).await).unwrap();
+            });
+
+            let v = receiver.await.unwrap();
 
             cache_model
               .update(&mut async_ctx, |borrow, cx| {
@@ -204,16 +212,21 @@ where
           return;
         };
 
-        println!("Inserting at top, aka {:?}", index);
-
         borrow.insert(0, Element::Unresolved);
+        cx.notify();
 
         let insert_index = 0;
         let mut async_ctx = cx.to_async();
 
         cx.foreground_executor()
           .spawn(async move {
-            let v = list_handle.borrow().get(index.clone()).await;
+            let (sender, receiver) = catty::oneshot();
+
+            tokio::spawn(async move {
+              sender.send(list_handle.read().await.get(index).await).unwrap();
+            });
+
+            let v = receiver.await.unwrap();
 
             cache_model
               .update(&mut async_ctx, |borrow, cx| {
@@ -229,7 +242,9 @@ where
     }
 
     if dirty.is_some() {
-      self.list_state_dirty.update(cx, |v, _| *v = dirty);
+      self.list_state_dirty.update(cx, |v, cx| {
+        *v = dirty;
+      });
     }
 
     self.bounds_flags.update(cx, |v, _| {
