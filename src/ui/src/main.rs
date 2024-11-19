@@ -1,6 +1,8 @@
+pub mod actions;
 pub mod app;
 pub mod app_state;
 pub mod channel;
+pub mod menu;
 
 use std::sync::Arc;
 
@@ -8,6 +10,7 @@ use app_state::AppState;
 use components::theme::{hsl, Theme, ThemeColor, ThemeMode};
 use gpui::*;
 use http_client::anyhow;
+use menu::app_menus;
 
 #[derive(rust_embed::RustEmbed)]
 #[folder = "../../assets"]
@@ -46,6 +49,11 @@ async fn main() {
       log::error!("{}", e);
       return;
     }
+
+    cx.bind_keys(vec![KeyBinding::new("cmd-q", actions::Quit, None)]);
+
+    cx.set_menus(app_menus());
+    cx.on_action(|_: &Quit, cx| cx.quit());
 
     let mut theme = Theme::from(ThemeColor::dark());
     theme.mode = ThemeMode::Dark;
