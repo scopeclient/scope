@@ -1,17 +1,25 @@
-use std::{
-  collections::HashMap, sync::{Arc, OnceLock}
-};
-
-use serenity::{
-  all::{Cache, ChannelId, Context, CreateMessage, Event, EventHandler, GatewayIntents, Http, Message, Nonce, RawEventHandler}, async_trait
-};
-use tokio::sync::{broadcast, RwLock};
-
+use crate::channel::DiscordChannelMetadata;
 use crate::{
   message::{
-    author::{DiscordMessageAuthor, DisplayName}, content::DiscordMessageContent, DiscordMessage
-  }, snowflake::Snowflake
+    author::{DiscordMessageAuthor, DisplayName},
+    content::DiscordMessageContent,
+    DiscordMessage,
+  },
+  snowflake::Snowflake,
 };
+use scope_chat::channel::ChannelMetadata;
+use serde_json::Map;
+use serenity::all::Channel;
+use serenity::json::Value;
+use serenity::{
+  all::{Cache, ChannelId, Context, CreateMessage, Event, EventHandler, GatewayIntents, Http, Message, Nonce, RawEventHandler},
+  async_trait,
+};
+use std::{
+  collections::HashMap,
+  sync::{Arc, OnceLock},
+};
+use tokio::sync::{broadcast, RwLock};
 
 #[allow(dead_code)]
 struct SerenityClient {
@@ -24,6 +32,8 @@ struct SerenityClient {
 #[derive(Default)]
 pub struct DiscordClient {
   channel_message_event_handlers: RwLock<HashMap<Snowflake, Vec<broadcast::Sender<DiscordMessage>>>>,
+  channel_updates_event_handler: RwLock<Vec<broadcast::Sender<DiscordChannelMetadata>>>,
+  direct_message_channels: RwLock<Vec<DiscordChannelMetadata>>,
   client: OnceLock<SerenityClient>,
   user: OnceLock<DiscordMessageAuthor>,
 }
@@ -65,6 +75,10 @@ impl DiscordClient {
     self.channel_message_event_handlers.write().await.entry(channel).or_default().push(sender);
   }
 
+  pub async fn set_channel_update_sender(&self, sender: broadcast::Sender<DiscordChannelMetadata>) {
+    self.channel_updates_event_handler.write().await.push(sender);
+  }
+
   pub async fn send_message(&self, channel_id: Snowflake, content: String, nonce: String) {
     ChannelId::new(channel_id.content)
       .send_message(
@@ -74,36 +88,79 @@ impl DiscordClient {
       .await
       .unwrap();
   }
+
+  pub async fn get_channel(&self, channel_id: Snowflake) -> Option<Channel> {
+    ChannelId::new(channel_id.content).to_channel(self.discord().http.clone()).await.ok()
+  }
+
+  pub async fn list_direct_message_channels(&self) -> Vec<DiscordChannelMetadata> {
+    self.direct_message_channels.read().await.clone()
+  }
+}
+
+fn avatar_by_user_value(user: &Map<String, Value>, user_id: String) -> String {
+  user
+    .get("avatar")
+    .and_then(|avatar| avatar.as_str())
+    .map(|avatar| format!("https://cdn.discordapp.com/avatars/{}/{}", user_id, avatar))
+    .unwrap_or_else(|| {
+      format!(
+        "https://cdn.discordapp.com/embed/avatars/{}.png",
+        (user_id.parse::<u64>().unwrap_or(0) % 5)
+      )
+    })
 }
 
 struct RawClient(Arc<DiscordClient>);
 
 #[async_trait]
 impl RawEventHandler for RawClient {
-  async fn raw_event(&self, _: Context, ev: serenity::model::prelude::Event) {
+  async fn raw_event(&self, _: Context, ev: Event) {
     if let Event::Unknown(unk) = ev {
       if unk.kind == "READY" {
         if let Some(user) = unk.value.as_object().and_then(|obj| obj.get("user")).and_then(|u| u.as_object()) {
           let username = user.get("username").and_then(|u| u.as_str()).unwrap_or("Unknown User").to_owned();
 
           let user_id = user.get("id").and_then(|id| id.as_str()).unwrap_or_default();
-
-          let icon = user
-            .get("avatar")
-            .and_then(|avatar| avatar.as_str())
-            .map(|avatar| format!("https://cdn.discordapp.com/avatars/{}/{}", user_id, avatar))
-            .unwrap_or_else(|| {
-              format!(
-                "https://cdn.discordapp.com/embed/avatars/{}.png",
-                (user_id.parse::<u64>().unwrap_or(0) % 5)
-              )
-            });
+          let icon = avatar_by_user_value(user, user_id.to_owned());
 
           self.0.user.get_or_init(|| DiscordMessageAuthor {
             display_name: DisplayName(username),
             icon,
             id: user_id.to_owned(),
           });
+        }
+
+        if let Some(private_channels) = unk.value.as_object().and_then(|obj| obj.get("private_channels")).and_then(|channels| channels.as_array()) {
+          for channel in private_channels {
+            if let Some(user) = channel
+              .get("recipients")
+              .and_then(|recipients| recipients.as_array())
+              .and_then(|recipients| recipients.get(0))
+              .and_then(|recipient| recipient.as_object())
+            {
+              let channel_id = channel.get("id").and_then(|id| id.as_str()).unwrap_or_default().to_owned();
+
+              let user_id = user.get("id").and_then(|id| id.as_str()).unwrap_or_default().to_owned();
+              let user_name = user.get("username").and_then(|name| name.as_str()).unwrap_or_default().to_owned();
+              let chat_icon = avatar_by_user_value(user, user_id.to_owned());
+
+              let channel = DiscordChannelMetadata::new(
+                self.0.clone(),
+                Snowflake {
+                  content: channel_id.parse().unwrap(),
+                },
+                user_name,
+                chat_icon,
+              )
+              .await;
+
+              self.0.direct_message_channels.write().await.push(channel.clone());
+              self.0.channel_updates_event_handler.read().await.iter().for_each(|sender| {
+                let _ = sender.send(channel.clone());
+              });
+            }
+          }
         }
       }
     }

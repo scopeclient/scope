@@ -1,11 +1,14 @@
-use components::theme::ActiveTheme;
-use gpui::{div, img, rgb, Context, Model, ParentElement, Render, Styled, View, ViewContext, VisualContext};
-use scope_backend_discord::{channel::DiscordChannel, client::DiscordClient, message::DiscordMessage, snowflake::Snowflake};
-
 use crate::channel::ChannelView;
+use crate::sidebar::Sidebar;
+use components::theme::ActiveTheme;
+use gpui::prelude::FluentBuilder;
+use gpui::{div, img, rgb, Context, Model, ParentElement, Render, Styled, View, ViewContext, VisualContext};
+use scope_backend_discord::channel::DiscordChannelMetadata;
+use scope_backend_discord::{channel::DiscordChannel, client::DiscordClient, message::DiscordMessage, snowflake::Snowflake};
 
 pub struct App {
   channel: Model<Option<View<ChannelView<DiscordMessage>>>>,
+  sidebar: Model<View<Sidebar<DiscordChannelMetadata>>>,
 }
 
 impl App {
@@ -14,10 +17,12 @@ impl App {
     let demo_channel_id = dotenv::var("DEMO_CHANNEL_ID").expect("Must provide DEMO_CHANNEL_ID in .env");
 
     let mut context = ctx.to_async();
-
     let channel = ctx.new_model(|_| None);
-
     let async_channel = channel.clone();
+
+    let sidebar_view = ctx.new_view(|cx| Sidebar::create(cx, None));
+    let sidebar = ctx.new_model(|cx| sidebar_view);
+    let async_sidebar = sidebar.clone();
 
     ctx
       .foreground_executor()
@@ -32,26 +37,34 @@ impl App {
         )
         .await;
 
-        let view = context.new_view(|cx| ChannelView::<DiscordMessage>::create(cx, channel)).unwrap();
+        let channel_view = context.new_view(|cx| ChannelView::<DiscordMessage>::create(cx, channel)).unwrap();
 
-        async_channel.update(&mut context, |a, b| {
-          *a = Some(view);
+        let _ = async_channel.update(&mut context, |a, b| {
+          *a = Some(channel_view);
           b.notify()
-        })
+        });
+
+        let sidebar_view = context.new_view(|cx| Sidebar::create(cx, Some(client))).unwrap();
+        let _ = async_sidebar.update(&mut context, |a, b| {
+          *a = sidebar_view;
+          b.notify()
+        });
       })
       .detach();
 
-    App { channel }
+    App { channel, sidebar }
   }
 }
 
 impl Render for App {
-  fn render(&mut self, cx: &mut gpui::ViewContext<Self>) -> impl gpui::IntoElement {
-    let mut content = div().w_full().h_full();
-
-    if let Some(channel) = self.channel.read(cx).as_ref() {
-      content = content.child(channel.clone());
-    }
+  fn render(&mut self, cx: &mut ViewContext<Self>) -> impl gpui::IntoElement {
+    let content = div()
+      .w_full()
+      .h_full()
+      .flex()
+      .gap_2()
+      .child(self.sidebar.read(cx).clone())
+      .when_some(self.channel.read(cx).clone(), |div, view| div.child(view));
 
     let title_bar = components::TitleBar::new()
       .child(div().flex().flex_row().text_color(rgb(0xFFFFFF)).gap_2().child(img("brand/scope-round-200.png").w_6().h_6()).child("Scope"));

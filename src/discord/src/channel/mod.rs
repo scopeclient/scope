@@ -1,3 +1,5 @@
+mod metadata;
+
 use std::sync::Arc;
 
 use scope_chat::channel::Channel;
@@ -9,6 +11,8 @@ use crate::{
   message::{content::DiscordMessageContent, DiscordMessage},
   snowflake::Snowflake,
 };
+
+pub use metadata::DiscordChannelMetadata;
 
 pub struct DiscordChannel {
   channel_id: Snowflake,
