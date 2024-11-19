@@ -5432,6 +5432,7 @@ dependencies = [
 name = "scope"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "dotenv",
  "env_logger",
  "gpui",
@@ -5450,6 +5451,7 @@ dependencies = [
 name = "scope-backend-discord"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "gpui",
  "scope-chat",
  "serenity",
@@ -5460,6 +5462,7 @@ dependencies = [
 name = "scope-chat"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "gpui",
  "tokio",
 ]
