@@ -4,7 +4,10 @@ use gpui::{div, list, rgb, AppContext, Context, IntoElement, ListAlignment, List
 use scope_chat::{
   async_list::{AsyncListIndex, AsyncListItem},
   channel::Channel,
+  message::Message,
 };
+
+use super::message::{message, MessageGroup};
 
 #[derive(Clone, Copy)]
 struct ListStateDirtyState {
@@ -57,8 +60,30 @@ where
   }
 
   fn list_state(&self, cx: &mut gpui::ViewContext<Self>) -> ListState {
-    let len = self.cache.read(cx).len();
     let bounds_model = self.bounds_flags.clone();
+
+    let mut groups = vec![];
+
+    for item in self.cache.read(cx) {
+      match item {
+        Element::Unresolved => groups.push(Element::Unresolved),
+        Element::Resolved(None) => groups.push(Element::Resolved(None)),
+        Element::Resolved(Some(m)) => match groups.last_mut() {
+          None | Some(Element::Unresolved) | Some(Element::Resolved(None)) => {
+            groups.push(Element::Resolved(Some(MessageGroup::new(m.clone()))));
+          }
+          Some(Element::Resolved(Some(old_group))) => {
+            if m.get_author() == old_group.last().get_author() && m.should_group(old_group.last()) {
+              old_group.add(m.clone());
+            } else {
+              groups.push(Element::Resolved(Some(MessageGroup::new(m.clone()))));
+            }
+          }
+        },
+      }
+    }
+
+    let len = groups.len();
 
     ListState::new(
       if len == 0 { 1 } else { len + 2 },
@@ -80,7 +105,11 @@ where
 
           div()
         } else {
-          div().text_color(rgb(0xFFFFFF)).child("Chottomatte")
+          match &groups[idx - 1] {
+            Element::Unresolved => div().text_color(rgb(0xFFFFFF)).child("Loading..."),
+            Element::Resolved(None) => div(), // we've hit the ends
+            Element::Resolved(Some(group)) => div().child(message(group.clone())),
+          }
         }
         .into_any_element()
       },
@@ -137,7 +166,7 @@ where
 
         borrow.push(Element::Unresolved);
 
-        let insert_index = borrow.len();
+        let insert_index = borrow.len() - 1;
         let mut async_ctx = cx.to_async();
 
         cx.foreground_executor()
