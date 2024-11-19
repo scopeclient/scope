@@ -13,6 +13,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  APP_BUNDLE_ID: "com.scopeclient.desktop"
 
 jobs:
   get-version:
@@ -175,6 +176,10 @@ jobs:
     needs: get-version
     name: Build macOS (Intel)
     runs-on: macos-latest
+    env:
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      KEYCHAIN_PASSWORD: $(openssl rand -base64 32)
     steps:
       - uses: actions/checkout@v4
         with:
@@ -214,7 +219,7 @@ jobs:
               <key>CFBundleDisplayName</key>
               <string>Scope</string>
               <key>CFBundleIdentifier</key>
-              <string>com.scope.app</string>
+              <string>${{ env.APP_BUNDLE_ID }}</string>
               <key>CFBundleVersion</key>
               <string>${{ needs.get-version.outputs.version }}</string>
               <key>CFBundlePackageType</key>
@@ -233,6 +238,25 @@ jobs:
           </plist>
           EOF
 
+      - name: Import Apple Developer Certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          rm certificate.p12
+
+      - name: Sign App Bundle
+        run: |
+          codesign --force --options runtime --sign "Apple Development" Scope.app
+          codesign --verify --verbose Scope.app
+
       - name: Create DMG
         run: |
           hdiutil create -volname "Scope" -srcfolder Scope.app -ov -format UDZO Scope-${{ needs.get-version.outputs.version }}_intel.dmg
@@ -247,6 +271,10 @@ jobs:
     needs: get-version
     name: Build macOS (Silicon)
     runs-on: macos-latest
+    env:
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      KEYCHAIN_PASSWORD: $(openssl rand -base64 32)
     steps:
       - uses: actions/checkout@v4
         with:
@@ -286,7 +314,7 @@ jobs:
               <key>CFBundleDisplayName</key>
               <string>Scope</string>
               <key>CFBundleIdentifier</key>
-              <string>com.scope.app</string>
+              <string>${{ env.APP_BUNDLE_ID }}</string>
               <key>CFBundleVersion</key>
               <string>${{ needs.get-version.outputs.version }}</string>
               <key>CFBundlePackageType</key>
@@ -304,6 +332,25 @@ jobs:
           </dict>
           </plist>
           EOF
+
+      - name: Import Apple Developer Certificate
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          rm certificate.p12
+
+      - name: Sign App Bundle
+        run: |
+          codesign --force --options runtime --sign "Apple Development" Scope.app
+          codesign --verify --verbose Scope.app
 
       - name: Create DMG
         run: |
