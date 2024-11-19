@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use gpui::{div, list, rgb, AppContext, Context, IntoElement, ListAlignment, ListState, Model, ParentElement, Pixels, Render, Styled};
+use gpui::{div, list, rgb, AppContext, Context, IntoElement, ListAlignment, ListState, Model, ParentElement, Pixels, Render, Styled, ViewContext};
 use scope_chat::{
   async_list::{AsyncListIndex, AsyncListItem},
   channel::Channel,
@@ -13,6 +13,7 @@ use super::message::{message, MessageGroup};
 #[derive(Clone, Copy)]
 struct ListStateDirtyState {
   pub new_items: usize,
+  pub shift: usize,
 }
 
 struct BoundFlags {
@@ -49,14 +50,27 @@ impl<T: Channel> MessageListComponent<T>
 where
   T: 'static,
 {
-  pub fn create(cx: &mut AppContext, list: T, overdraw: Pixels) -> Self {
+  pub fn create(cx: &mut ViewContext<Self>, list: T, overdraw: Pixels) -> Self {
+    let cache = cx.new_model(|_| Default::default());
+    let list_state_dirty = cx.new_model(|_| None);
+
+    cx.observe(&cache, |_, _, cx| {
+      cx.notify();
+    })
+    .detach();
+
+    cx.observe(&list_state_dirty, |_, _, cx| {
+      cx.notify();
+    })
+    .detach();
+
     MessageListComponent {
       list: Arc::new(RwLock::new(list)),
-      cache: cx.new_model(|_| Default::default()),
+      cache,
       overdraw,
       bounds_flags: cx.new_model(|_| BoundFlags { before: false, after: false }),
       list_state: cx.new_model(|_| None),
-      list_state_dirty: cx.new_model(|_| None),
+      list_state_dirty,
     }
   }
 
@@ -133,8 +147,22 @@ where
       let mut new_scroll_top = old_list_state.logical_scroll_top();
 
       if let Some(list_state_dirty) = list_state_dirty {
-        new_scroll_top.item_ix += list_state_dirty.new_items;
+        if old_list_state.logical_scroll_top().item_ix == old_list_state.item_count() {
+          new_scroll_top.item_ix += list_state_dirty.new_items;
+
+          if list_state_dirty.new_items > 0 {
+            new_scroll_top.offset_in_item = Pixels(0.);
+          }
+        }
+
+        new_scroll_top.item_ix += list_state_dirty.shift;
       }
+
+      println!(
+        "List states:\n  Old: {:?}\n  New: {:?}",
+        old_list_state.logical_scroll_top(),
+        new_scroll_top
+      );
 
       new_list_state.scroll_to(new_scroll_top);
     };
@@ -166,7 +194,6 @@ where
         };
 
         borrow.push(Element::Unresolved);
-        cx.notify();
 
         let insert_index = borrow.len() - 1;
         let mut async_ctx = cx.to_async();
@@ -190,7 +217,7 @@ where
           })
           .detach();
 
-        dirty = Some(ListStateDirtyState { new_items: 1 });
+        dirty = Some(ListStateDirtyState { new_items: 1, shift: 0 });
       });
     }
 
@@ -213,7 +240,6 @@ where
         };
 
         borrow.insert(0, Element::Unresolved);
-        cx.notify();
 
         let insert_index = 0;
         let mut async_ctx = cx.to_async();
@@ -237,14 +263,22 @@ where
           })
           .detach();
 
-        dirty = dirty.or(Some(ListStateDirtyState { new_items: 0 }));
+        dirty = {
+          let mut v = dirty.unwrap_or(ListStateDirtyState { new_items: 0, shift: 0 });
+
+          v.shift += 1;
+
+          Some(v)
+        };
       });
     }
 
+    self.list_state_dirty.update(cx, |v, _| {
+      *v = dirty;
+    });
+
     if dirty.is_some() {
-      self.list_state_dirty.update(cx, |v, cx| {
-        *v = dirty;
-      });
+      cx.notify();
     }
 
     self.bounds_flags.update(cx, |v, _| {
