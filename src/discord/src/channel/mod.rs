@@ -61,6 +61,7 @@ impl Channel for DiscordChannel {
       id: Snowflake { content: 0 },
       nonce: Some(nonce),
       creation_time: Timestamp::now(),
+      reactions: vec![],
     }
   }
 }

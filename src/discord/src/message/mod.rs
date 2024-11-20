@@ -4,11 +4,13 @@ use content::DiscordMessageContent;
 use gpui::{Element, IntoElement};
 use scope_chat::{async_list::AsyncListItem, message::Message};
 use serenity::all::Nonce;
-
+use scope_chat::message::MessageAuthor;
+use scope_chat::reaction::MessageReaction;
 use crate::snowflake::Snowflake;
 
 pub mod author;
 pub mod content;
+mod reaction;
 
 #[derive(Clone, Debug)]
 pub struct DiscordMessage {
@@ -17,10 +19,15 @@ pub struct DiscordMessage {
   pub id: Snowflake,
   pub nonce: Option<String>,
   pub creation_time: serenity::model::Timestamp,
+  pub reactions: Vec<reaction::DiscordMessageReaction>,
 }
 
 impl DiscordMessage {
   pub fn from_serenity(msg: &serenity::all::Message) -> Self {
+    let reactions = &msg.reactions.iter().map(|r| reaction::DiscordMessageReaction::from_serenity(r)).filter_map(Result::ok).collect::<Vec<_>>();
+    if !reactions.is_empty() {
+        println!("Reactions: {:?}", reactions);
+    }
     DiscordMessage {
       id: Snowflake { content: msg.id.get() },
       author: DiscordMessageAuthor {
@@ -37,12 +44,13 @@ impl DiscordMessage {
         Nonce::String(s) => s,
       }),
       creation_time: msg.timestamp,
+      reactions: reactions.clone(),
     }
   }
 }
 
 impl Message for DiscordMessage {
-  fn get_author(&self) -> &impl scope_chat::message::MessageAuthor {
+  fn get_author(&self) -> &impl MessageAuthor {
     &self.author
   }
 
@@ -68,6 +76,10 @@ impl Message for DiscordMessage {
     let ts = self.creation_time.timestamp_millis();
 
     DateTime::from_timestamp_millis(ts)
+  }
+
+  fn get_reactions(&self) -> Vec<impl MessageReaction> {
+    self.reactions.clone()
   }
 }
 
