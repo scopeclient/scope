@@ -13,10 +13,7 @@ repository = "https://github.com/scopeclient/scope"
 keywords = ["discord", "scope", "reticle"]
 
 [dependencies]
-gpui = { git = "https://github.com/huacnlee/zed.git", branch = "export-platform-window", version = "0.1.0", default-features = false, features = [
-  "http_client",
-  "font-kit",
-] }
+gpui.workspace = true
 reqwest_client = { git = "https://github.com/huacnlee/zed.git", branch = "export-platform-window", version = "0.1.0" }
 scope-chat = { version = "0.1.0", path = "../chat" }
 scope-util = { version = "0.1.0", path = "../util" }
@@ -25,7 +22,7 @@ scope-backend-cache = { version = "0.1.0", path = "../cache" }
 dotenv = "0.15.0"
 env_logger = "0.11.5"
 tokio = { version = "1.41.1", features = ["full"] }
-components = { package = "ui", git = "https://github.com/longbridgeapp/gpui-component", version = "0.1.0" }
+components.workspace = true
 log = "0.4.22"
 random-string = "1.1.0"
 rust-embed = "8.5.0"
