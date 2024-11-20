@@ -14,7 +14,7 @@ keywords = ["discord", "scope", "reticle"]
 
 [dependencies]
 gpui.workspace = true
-reqwest_client = { git = "https://github.com/huacnlee/zed.git", branch = "export-platform-window", version = "0.1.0" }
+reqwest_client.workspace = true
 scope-chat = { version = "0.1.0", path = "../chat" }
 scope-util = { version = "0.1.0", path = "../util" }
 scope-backend-discord = { version = "0.1.0", path = "../discord" }

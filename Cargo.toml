@@ -4,8 +4,9 @@ members = ["src/ui", "src/cache", "src/chat", "src/discord"]
 
 [workspace.dependencies]
 chrono = "0.4.38"
-gpui = { git = "https://github.com/scopeclient/zed.git", branch = "export-platform-window", default-features = false, features = [
+gpui = { git = "https://github.com/scopeclient/zed.git", branch = "feature/export-platform-window", default-features = false, features = [
   "http_client",
   "font-kit",
 ] }
 components = { package = "ui", git = "https://github.com/scopeclient/components", version = "0.1.0" }
+reqwest_client = { git = "https://github.com/scopeclient/zed.git", branch = "feature/export-platform-window", version = "0.1.0" }
