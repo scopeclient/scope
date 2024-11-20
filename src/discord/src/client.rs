@@ -4,7 +4,7 @@ use std::{
 };
 
 use serenity::{
-  all::{Cache, ChannelId, Context, CreateMessage, Event, EventHandler, GatewayIntents, GetMessages, Http, Message, MessageId, RawEventHandler},
+  all::{Cache, ChannelId, Context, CreateMessage, EventHandler, GatewayIntents, GetMessages, Http, Message, MessageId, Ready},
   async_trait,
 };
 use tokio::sync::{broadcast, RwLock};
@@ -40,7 +40,6 @@ impl DiscordClient {
 
     let mut discord = serenity::Client::builder(token, GatewayIntents::all())
       .event_handler_arc(client.clone())
-      .raw_event_handler(RawClient(client.clone()))
       .await
       .expect("Error creating client");
 
@@ -110,42 +109,16 @@ impl DiscordClient {
   }
 }
 
-struct RawClient(Arc<DiscordClient>);
-
-#[async_trait]
-impl RawEventHandler for RawClient {
-  async fn raw_event(&self, _: Context, ev: serenity::model::prelude::Event) {
-    if let Event::Unknown(unk) = ev {
-      if unk.kind == "READY" {
-        if let Some(user) = unk.value.as_object().and_then(|obj| obj.get("user")).and_then(|u| u.as_object()) {
-          let username = user.get("username").and_then(|u| u.as_str()).unwrap_or("Unknown User").to_owned();
-
-          let user_id = user.get("id").and_then(|id| id.as_str()).unwrap_or_default();
-
-          let icon = user
-            .get("avatar")
-            .and_then(|avatar| avatar.as_str())
-            .map(|avatar| format!("https://cdn.discordapp.com/avatars/{}/{}", user_id, avatar))
-            .unwrap_or_else(|| {
-              format!(
-                "https://cdn.discordapp.com/embed/avatars/{}.png",
-                (user_id.parse::<u64>().unwrap_or(0) % 5)
-              )
-            });
-
-          self.0.user.get_or_init(|| DiscordMessageAuthor {
-            display_name: DisplayName(username),
-            icon,
-            id: user_id.to_owned(),
-          });
-        }
-      }
-    }
-  }
-}
 
 #[async_trait]
 impl EventHandler for DiscordClient {
+  async fn ready(&self, _: Context, ready: Ready) {
+    self.user.get_or_init(|| DiscordMessageAuthor {
+      display_name: DisplayName(ready.user.name.clone()),
+      icon: ready.user.face(),
+      id: ready.user.id.to_string(),
+    });
+  }
   async fn message(&self, _: Context, msg: Message) {
     let snowflake = Snowflake {
       content: msg.channel_id.get(),
