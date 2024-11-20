@@ -25,7 +25,7 @@ impl DiscordMessage {
       id: Snowflake { content: msg.id.get() },
       author: DiscordMessageAuthor {
         display_name: DisplayName(msg.author.name.clone()),
-        icon: msg.author.avatar_url().unwrap_or(msg.author.default_avatar_url()),
+        icon: msg.author.face(),
         id: msg.author.id.to_string(),
       },
       content: DiscordMessageContent {
