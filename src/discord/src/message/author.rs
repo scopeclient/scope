@@ -25,7 +25,11 @@ impl MessageAuthor for DiscordMessageAuthor {
   }
 
   fn get_small_icon(&self) -> String {
-    self.icon.clone() + "?size=32"
+    let icon = match self.icon.strip_suffix("?size=1024") {
+      Some(strip) => strip.to_owned(),
+      None => self.icon.to_owned(),   
+    };
+    icon + "?size=32"
   }
 
   fn get_id(&self) -> String {
