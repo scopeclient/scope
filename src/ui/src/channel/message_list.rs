@@ -8,7 +8,7 @@ use scope_chat::{
 };
 use tokio::sync::RwLock;
 
-use super::message::{message, MessageGroup};
+use super::message::{message_group, MessageGroup};
 
 #[derive(Clone, Copy)]
 struct ListStateDirtyState {
@@ -168,6 +168,8 @@ where
 
     let len = groups.len();
 
+    println!("New list state... ✍️");
+
     let new_list_state = ListState::new(
       if len == 0 { 1 } else { len + 2 },
       ListAlignment::Bottom,
@@ -191,7 +193,7 @@ where
           match &groups[idx - 1] {
             Element::Unresolved => div().text_color(rgb(0xFFFFFF)).child("Loading..."),
             Element::Resolved(None) => div(), // we've hit the ends
-            Element::Resolved(Some(group)) => div().child(message(group.clone())),
+            Element::Resolved(Some(group)) => div().child(message_group(group.clone(), cx)),
           }
         }
         .into_any_element()
@@ -228,6 +230,7 @@ where
 
     // update bottom
     if flags.after {
+      println!("Updating 🤓☝️");
       let cache_model = self.cache.clone();
       let list_handle = self.list.clone();
 
@@ -255,7 +258,10 @@ where
             let (sender, receiver) = catty::oneshot();
 
             tokio::spawn(async move {
-              sender.send(list_handle.read().await.get(index).await).unwrap();
+              match sender.send(list_handle.read().await.get(index).await) {
+                Ok(_) => {}
+                Err(e) => log::error!("Failed to send."),
+              }
             });
 
             let v = receiver.await.unwrap();
@@ -304,7 +310,10 @@ where
             let (sender, receiver) = catty::oneshot();
 
             tokio::spawn(async move {
-              sender.send(list_handle.read().await.get(index).await).unwrap();
+              match sender.send(list_handle.read().await.get(index).await) {
+                Ok(_) => {}
+                Err(e) => log::error!("Failed to send."),
+              }
             });
 
             let v = receiver.await.unwrap();
@@ -350,6 +359,8 @@ where
 
 impl<T: Channel + 'static> Render for MessageListComponent<T> {
   fn render(&mut self, cx: &mut gpui::ViewContext<Self>) -> impl gpui::IntoElement {
+    println!("Rendering Message List 📍");
+
     self.update(cx);
 
     let ls = if let Some(v) = self.list_state.read(cx).clone() {

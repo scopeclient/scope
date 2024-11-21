@@ -1,21 +1,23 @@
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
+use chrono::Utc;
 use scope_backend_cache::async_list::{refcacheslice::Exists, AsyncListCache};
 use scope_chat::{
   async_list::{AsyncList, AsyncListIndex, AsyncListItem, AsyncListResult},
   channel::Channel,
 };
-use serenity::all::{GetMessages, MessageId, Timestamp};
+use serenity::all::{ChannelId, GetMessages, MessageId};
 use tokio::sync::{broadcast, Mutex, Semaphore};
 
 use crate::{
   client::DiscordClient,
-  message::{content::DiscordMessageContent, DiscordMessage},
+  message::{DiscordMessage, DiscordMessageData},
   snowflake::Snowflake,
 };
 
 pub struct DiscordChannel {
-  channel_id: Snowflake,
+  channel: Arc<serenity::model::channel::Channel>,
+
   receiver: broadcast::Receiver<DiscordMessage>,
   client: Arc<DiscordClient>,
   cache: Arc<Mutex<AsyncListCache<DiscordMessage>>>,
@@ -23,13 +25,15 @@ pub struct DiscordChannel {
 }
 
 impl DiscordChannel {
-  pub async fn new(client: Arc<DiscordClient>, channel_id: Snowflake) -> Self {
+  pub(crate) async fn new(client: Arc<DiscordClient>, channel_id: ChannelId) -> Self {
     let (sender, receiver) = broadcast::channel(10);
 
     client.add_channel_message_sender(channel_id, sender).await;
 
+    let channel = Arc::new(channel_id.to_channel(client.discord()).await.unwrap());
+
     DiscordChannel {
-      channel_id,
+      channel,
       receiver,
       client,
       cache: Arc::new(Mutex::new(AsyncListCache::new())),
@@ -40,6 +44,7 @@ impl DiscordChannel {
 
 impl Channel for DiscordChannel {
   type Message = DiscordMessage;
+  type Identifier = Snowflake;
 
   fn get_receiver(&self) -> broadcast::Receiver<Self::Message> {
     self.receiver.resubscribe()
@@ -47,7 +52,7 @@ impl Channel for DiscordChannel {
 
   fn send_message(&self, content: String, nonce: String) -> DiscordMessage {
     let client = self.client.clone();
-    let channel_id = self.channel_id;
+    let channel_id = self.channel.id();
     let sent_content = content.clone();
     let sent_nonce = nonce.clone();
 
@@ -56,12 +61,20 @@ impl Channel for DiscordChannel {
     });
 
     DiscordMessage {
-      content: DiscordMessageContent { content, is_pending: true },
-      author: self.client.user().clone(),
-      id: Snowflake { content: 0 },
-      nonce: Some(nonce),
-      creation_time: Timestamp::now(),
+      channel: self.channel.clone(),
+      client: self.client.clone(),
+      data: DiscordMessageData::Pending {
+        nonce,
+        content,
+        sent_time: Utc::now(),
+        list_item_id: Snowflake::random(),
+      },
+      content: OnceLock::new(),
     }
+  }
+
+  fn get_identifier(&self) -> Self::Identifier {
+    self.channel.id().into()
   }
 }
 
@@ -76,7 +89,16 @@ impl AsyncList for DiscordChannel {
       return Some(v);
     };
 
-    self.client.get_messages(self.channel_id, GetMessages::new().limit(1)).await.first().map(|v| Snowflake { content: v.id.get() })
+    match &*self.channel {
+      serenity::model::channel::Channel::Guild(guild_channel) => guild_channel.messages(self.client.discord(), GetMessages::new().limit(1)).await,
+      serenity::model::channel::Channel::Private(private_channel) => {
+        private_channel.messages(self.client.discord(), GetMessages::new().limit(1)).await
+      }
+      _ => unimplemented!(),
+    }
+    .unwrap()
+    .first()
+    .map(|v| Snowflake(v.id.get()))
   }
 
   async fn bounded_at_top_by(&self) -> Option<Snowflake> {
@@ -91,8 +113,6 @@ impl AsyncList for DiscordChannel {
   }
 
   async fn find(&self, identifier: &Snowflake) -> Option<Self::Content> {
-    let permit = self.blocker.acquire().await;
-
     let lock = self.cache.lock().await;
     let cache_value = lock.find(identifier);
 
@@ -102,11 +122,13 @@ impl AsyncList for DiscordChannel {
       return Some(v);
     }
 
-    let result = self.client.get_specific_message(self.channel_id, *identifier).await.map(|v| DiscordMessage::from_serenity(&v));
+    let result = self.client.get_specific_message(self.channel.id(), MessageId::new(identifier.0)).await;
 
-    drop(permit);
+    if result.is_none() {
+      return None;
+    }
 
-    result
+    Some(DiscordMessage::load_serenity(self.client.clone(), Arc::new(result.unwrap())).await)
   }
 
   async fn get(&self, index: AsyncListIndex<Snowflake>) -> Option<AsyncListResult<Self::Content>> {
@@ -120,7 +142,7 @@ impl AsyncList for DiscordChannel {
       return None;
     }
 
-    let result: Option<DiscordMessage>;
+    let mut result: Option<DiscordMessage> = None;
     let mut is_top = false;
     let mut is_bottom = false;
 
@@ -131,25 +153,24 @@ impl AsyncList for DiscordChannel {
           unimplemented!()
         }
 
-        let v = self.client.get_messages(self.channel_id, GetMessages::new().limit(DISCORD_MESSAGE_BATCH_SIZE)).await;
+        let v = self.client.get_messages(self.channel.id(), GetMessages::new().limit(DISCORD_MESSAGE_BATCH_SIZE)).await;
 
         let is_end = v.len() == DISCORD_MESSAGE_BATCH_SIZE as usize;
         is_bottom = true;
         is_top = v.len() == 1;
 
-        result = v.first().map(DiscordMessage::from_serenity);
-
-        let mut iter = v.iter();
+        let mut iter = v.into_iter();
 
         let v = iter.next();
 
         if let Some(v) = v {
-          let msg = DiscordMessage::from_serenity(v);
+          let msg = DiscordMessage::load_serenity(self.client.clone(), Arc::new(v)).await;
           let mut id = msg.get_list_identifier();
-          lock.append_bottom(msg);
+          lock.append_bottom(msg.clone());
+          result = Some(msg);
 
           for message in iter {
-            let msg = DiscordMessage::from_serenity(message);
+            let msg = DiscordMessage::load_serenity(self.client.clone(), Arc::new(message)).await;
             let nid = msg.get_list_identifier();
 
             lock.insert(AsyncListIndex::Before(id), msg, false, is_end);
@@ -163,34 +184,36 @@ impl AsyncList for DiscordChannel {
         let v = self
           .client
           .get_messages(
-            self.channel_id,
-            GetMessages::new().after(MessageId::new(message.content)).limit(DISCORD_MESSAGE_BATCH_SIZE),
+            self.channel.id(),
+            GetMessages::new().after(MessageId::new(message.0)).limit(DISCORD_MESSAGE_BATCH_SIZE),
           )
           .await;
         let mut current_index: Snowflake = message;
 
         let is_end = v.len() == DISCORD_MESSAGE_BATCH_SIZE as usize;
+        let len = v.len();
         is_bottom = is_end && v.len() == 1;
 
-        result = v.last().map(DiscordMessage::from_serenity);
+        for (message, index) in v.into_iter().rev().zip(0..) {
+          let id = Snowflake(message.id.get());
 
-        for (message, index) in v.iter().rev().zip(0..) {
-          lock.insert(
-            AsyncListIndex::After(current_index),
-            DiscordMessage::from_serenity(message),
-            false,
-            is_end && index == (v.len() - 1),
-          );
+          let value = DiscordMessage::load_serenity(self.client.clone(), Arc::new(message)).await;
 
-          current_index = Snowflake { content: message.id.get() }
+          if index == 0 {
+            result = Some(value.clone());
+          }
+
+          lock.insert(AsyncListIndex::After(current_index), value, false, is_end && index == (len - 1));
+
+          current_index = id;
         }
       }
       AsyncListIndex::Before(message) => {
         let v = self
           .client
           .get_messages(
-            self.channel_id,
-            GetMessages::new().before(MessageId::new(message.content)).limit(DISCORD_MESSAGE_BATCH_SIZE),
+            self.channel.id(),
+            GetMessages::new().before(MessageId::new(message.0)).limit(DISCORD_MESSAGE_BATCH_SIZE),
           )
           .await;
         let mut current_index: Snowflake = message;
@@ -198,19 +221,23 @@ impl AsyncList for DiscordChannel {
         println!("Discord gave us {:?} messages (out of {:?})", v.len(), DISCORD_MESSAGE_BATCH_SIZE);
 
         let is_end = v.len() == DISCORD_MESSAGE_BATCH_SIZE as usize;
+        let len = v.len();
         is_top = is_end && v.len() == 1;
 
-        result = v.first().map(DiscordMessage::from_serenity);
+        result = None;
 
-        for (message, index) in v.iter().zip(0..) {
-          lock.insert(
-            AsyncListIndex::Before(current_index),
-            DiscordMessage::from_serenity(message),
-            false,
-            is_end && index == (v.len() - 1),
-          );
+        for (message, index) in v.into_iter().zip(0..) {
+          let id = Snowflake(message.id.get());
 
-          current_index = Snowflake { content: message.id.get() }
+          let value = DiscordMessage::load_serenity(self.client.clone(), Arc::new(message)).await;
+
+          if index == 0 {
+            result = Some(value.clone());
+          }
+
+          lock.insert(AsyncListIndex::Before(current_index), value, false, is_end && index == len);
+
+          current_index = id;
         }
       }
     };
@@ -231,7 +258,7 @@ impl AsyncList for DiscordChannel {
 impl Clone for DiscordChannel {
   fn clone(&self) -> Self {
     Self {
-      channel_id: self.channel_id,
+      channel: self.channel.clone(),
       receiver: self.receiver.resubscribe(),
       client: self.client.clone(),
       cache: self.cache.clone(),

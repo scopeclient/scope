@@ -1,18 +1,20 @@
 pub mod message;
 pub mod message_list;
 
+use std::sync::Arc;
+
 use components::input::{InputEvent, TextInput};
 use gpui::{div, ParentElement, Pixels, Render, Styled, View, VisualContext};
 use message_list::MessageListComponent;
 use scope_chat::channel::Channel;
 
 pub struct ChannelView<C: Channel + 'static> {
-  list_view: View<MessageListComponent<C>>,
+  list_view: View<MessageListComponent<Arc<C>>>,
   message_input: View<TextInput>,
 }
 
 impl<C: Channel + 'static> ChannelView<C> {
-  pub fn create(ctx: &mut gpui::ViewContext<'_, ChannelView<C>>, channel: C) -> Self {
+  pub fn create(ctx: &mut gpui::ViewContext<'_, ChannelView<C>>, channel: Arc<C>) -> Self {
     let channel_listener = channel.get_receiver();
 
     let c2 = channel.clone();
@@ -31,7 +33,10 @@ impl<C: Channel + 'static> ChannelView<C> {
           let mut l = channel_listener.resubscribe();
 
           tokio::spawn(async move {
-            sender.send(l.recv().await).unwrap();
+            match sender.send(l.recv().await) {
+              Ok(_) => {}
+              Err(e) => log::error!("Failed to send message data!"),
+            };
           });
 
           let message = receiver.await.unwrap().unwrap();
@@ -97,6 +102,8 @@ impl<C: Channel + 'static> ChannelView<C> {
 
 impl<C: Channel + 'static> Render for ChannelView<C> {
   fn render(&mut self, _: &mut gpui::ViewContext<Self>) -> impl gpui::IntoElement {
+    println!("Rendering Channel 📍");
+
     div()
       .flex()
       .flex_col()
