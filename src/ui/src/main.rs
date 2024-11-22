@@ -3,14 +3,17 @@ pub mod app;
 pub mod app_state;
 pub mod channel;
 pub mod menu;
+pub mod oobe;
 
 use std::sync::Arc;
 
-use app_state::AppState;
+use app_state::StateModel;
+use clap::Parser;
 use components::theme::{hsl, Theme, ThemeColor, ThemeMode};
 use gpui::*;
 use http_client::anyhow;
 use menu::app_menus;
+use oobe::login::OobeTokenLogin;
 
 #[derive(rust_embed::RustEmbed)]
 #[folder = "../../assets"]
@@ -26,7 +29,8 @@ impl AssetSource for Assets {
   }
 }
 
-fn init(_: Arc<AppState>, cx: &mut AppContext) -> Result<()> {
+fn init(cx: &mut AppContext) -> Result<()> {
+  StateModel::init(cx);
   components::init(cx);
 
   if cfg!(target_os = "macos") {
@@ -44,16 +48,20 @@ fn init(_: Arc<AppState>, cx: &mut AppContext) -> Result<()> {
   Ok(())
 }
 
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+  /// Forces the out of box experience rather than using the token from ENV or appdata
+  #[arg(long)]
+  force_oobe: bool,
+}
+
 #[tokio::main]
 async fn main() {
   env_logger::init();
 
-  let app_state = Arc::new(AppState {});
-
   App::new().with_assets(Assets).with_http_client(Arc::new(reqwest_client::ReqwestClient::new())).run(move |cx: &mut AppContext| {
-    AppState::set_global(Arc::downgrade(&app_state), cx);
-
-    if let Err(e) = init(app_state.clone(), cx) {
+    if let Err(e) = init(cx) {
       log::error!("{}", e);
       return;
     }
@@ -67,17 +75,29 @@ async fn main() {
     cx.set_global(theme);
     cx.refresh();
 
-    let opts = WindowOptions {
-      window_decorations: Some(WindowDecorations::Client),
-      window_min_size: Some(size(Pixels(800.0), Pixels(600.0))),
-      titlebar: Some(TitlebarOptions {
-        appears_transparent: true,
-        title: Some(SharedString::new_static("scope")),
-        ..Default::default()
-      }),
-      ..Default::default()
-    };
+    let mut async_cx = cx.to_async();
 
-    cx.open_window(opts, |cx| cx.new_view(crate::app::App::new)).unwrap();
+    let args = Args::parse();
+
+    cx.foreground_executor()
+      .spawn(async move {
+        if let Some(token) = OobeTokenLogin::get_token(&mut async_cx, args.force_oobe).await {
+          async_cx.update_global(|global: &mut StateModel, cx| global.provide_token(token, cx)).unwrap();
+
+          let opts = WindowOptions {
+            window_decorations: Some(WindowDecorations::Client),
+            window_min_size: Some(size(Pixels(800.0), Pixels(600.0))),
+            titlebar: Some(TitlebarOptions {
+              appears_transparent: true,
+              title: Some(SharedString::new_static("scope")),
+              ..Default::default()
+            }),
+            ..Default::default()
+          };
+
+          async_cx.open_window(opts, |cx| cx.new_view(crate::app::App::new)).unwrap();
+        }
+      })
+      .detach();
   });
 }

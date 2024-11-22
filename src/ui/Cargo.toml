@@ -28,6 +28,8 @@ random-string = "1.1.0"
 rust-embed = "8.5.0"
 chrono.workspace = true
 catty = "0.1.5"
+directories = "5.0.1"
+clap = { version = "4.5.21", features = ["derive"] }
 
 [features]
 default = ["gpui/x11"]
