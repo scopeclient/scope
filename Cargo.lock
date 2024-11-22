@@ -1074,7 +1074,7 @@ dependencies = [
 [[package]]
 name = "command_attr"
 version = "0.5.3"
-source = "git+https://github.com/scopeclient/serenity#f74e1c5a438fe8f98ec2020f74b81fae09ba8337"
+source = "git+https://github.com/scopeclient/serenity#a24c41552b3bab4e8fc391efed29fa8c3e1c164d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2781,7 +2781,7 @@ dependencies = [
  "httpdate",
  "itoa 1.0.11",
  "pin-project-lite",
- "socket2 0.5.7",
+ "socket2 0.4.10",
  "tokio",
  "tower-service",
  "tracing",
@@ -5712,7 +5712,7 @@ dependencies = [
 [[package]]
 name = "serenity"
 version = "0.12.4"
-source = "git+https://github.com/scopeclient/serenity#f74e1c5a438fe8f98ec2020f74b81fae09ba8337"
+source = "git+https://github.com/scopeclient/serenity#a24c41552b3bab4e8fc391efed29fa8c3e1c164d"
 dependencies = [
  "arrayvec",
  "async-trait",
