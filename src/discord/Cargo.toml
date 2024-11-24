@@ -4,10 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-gpui = { git = "https://github.com/huacnlee/zed.git", branch = "export-platform-window", default-features = false, features = [
-  "http_client",
-  "font-kit",
-] }
+gpui.workspace = true
 scope-chat = { version = "0.1.0", path = "../chat" }
 serenity = { git = "https://github.com/scopeclient/serenity", version = "0.12" }
 tokio = "1.41.1"

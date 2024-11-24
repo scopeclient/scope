@@ -549,7 +549,7 @@ dependencies = [
  "bitflags 2.6.0",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.11.0",
  "log",
  "prettyplease",
  "proc-macro2",
@@ -1044,7 +1044,7 @@ dependencies = [
 [[package]]
 name = "collections"
 version = "0.1.0"
-source = "git+https://github.com/huacnlee/zed.git?branch=export-platform-window#543fe4c094abdc5ebc54e8a5f5e9559ee1b30f55"
+source = "git+https://github.com/scopeclient/zed.git?branch=feature/export-platform-window#76d3936511b02af10b3a7c591069049172006176"
 dependencies = [
  "rustc-hash 1.1.0",
 ]
@@ -1074,7 +1074,7 @@ dependencies = [
 [[package]]
 name = "command_attr"
 version = "0.5.3"
-source = "git+https://github.com/scopeclient/serenity#f74e1c5a438fe8f98ec2020f74b81fae09ba8337"
+source = "git+https://github.com/scopeclient/serenity#a24c41552b3bab4e8fc391efed29fa8c3e1c164d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1410,7 +1410,7 @@ dependencies = [
 [[package]]
 name = "derive_refineable"
 version = "0.1.0"
-source = "git+https://github.com/huacnlee/zed.git?branch=export-platform-window#543fe4c094abdc5ebc54e8a5f5e9559ee1b30f55"
+source = "git+https://github.com/scopeclient/zed.git?branch=feature/export-platform-window#76d3936511b02af10b3a7c591069049172006176"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2379,7 +2379,7 @@ dependencies = [
 [[package]]
 name = "gpui"
 version = "0.1.0"
-source = "git+https://github.com/huacnlee/zed.git?branch=export-platform-window#543fe4c094abdc5ebc54e8a5f5e9559ee1b30f55"
+source = "git+https://github.com/scopeclient/zed.git?branch=feature/export-platform-window#76d3936511b02af10b3a7c591069049172006176"
 dependencies = [
  "anyhow",
  "as-raw-xcb-connection",
@@ -2464,7 +2464,7 @@ dependencies = [
 [[package]]
 name = "gpui_macros"
 version = "0.1.0"
-source = "git+https://github.com/huacnlee/zed.git?branch=export-platform-window#543fe4c094abdc5ebc54e8a5f5e9559ee1b30f55"
+source = "git+https://github.com/scopeclient/zed.git?branch=feature/export-platform-window#76d3936511b02af10b3a7c591069049172006176"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2550,9 +2550,9 @@ dependencies = [
 
 [[package]]
 name = "h2"
-version = "0.4.6"
+version = "0.4.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "524e8ac6999421f49a846c2d4411f337e53497d8ec55d67753beffa43c5d9205"
+checksum = "ccae279728d634d083c00f6099cb58f01cc99c145b84b8be2f6c74618d79922e"
 dependencies = [
  "atomic-waker",
  "bytes",
@@ -2733,7 +2733,7 @@ dependencies = [
 [[package]]
 name = "http_client"
 version = "0.1.0"
-source = "git+https://github.com/huacnlee/zed.git?branch=export-platform-window#543fe4c094abdc5ebc54e8a5f5e9559ee1b30f55"
+source = "git+https://github.com/scopeclient/zed.git?branch=feature/export-platform-window#76d3936511b02af10b3a7c591069049172006176"
 dependencies = [
  "anyhow",
  "bytes",
@@ -2790,14 +2790,14 @@ dependencies = [
 
 [[package]]
 name = "hyper"
-version = "1.5.0"
+version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbbff0a806a4728c99295b254c8838933b5b082d75e3cb70c8dab21fdfbcfa9a"
+checksum = "97818827ef4f364230e16705d4706e2897df2bb60617d6ca15d598025a3c481f"
 dependencies = [
  "bytes",
  "futures-channel",
  "futures-util",
- "h2 0.4.6",
+ "h2 0.4.7",
  "http 1.1.0",
  "http-body 1.0.1",
  "httparse",
@@ -2830,9 +2830,9 @@ checksum = "08afdbb5c31130e3034af566421053ab03787c640246a446327f550d11bcb333"
 dependencies = [
  "futures-util",
  "http 1.1.0",
- "hyper 1.5.0",
+ "hyper 1.5.1",
  "hyper-util",
- "rustls 0.23.16",
+ "rustls 0.23.17",
  "rustls-native-certs",
  "rustls-pki-types",
  "tokio",
@@ -2851,7 +2851,7 @@ dependencies = [
  "futures-util",
  "http 1.1.0",
  "http-body 1.0.1",
- "hyper 1.5.0",
+ "hyper 1.5.1",
  "pin-project-lite",
  "socket2 0.5.7",
  "tokio",
@@ -3509,7 +3509,7 @@ dependencies = [
 [[package]]
 name = "media"
 version = "0.1.0"
-source = "git+https://github.com/huacnlee/zed.git?branch=export-platform-window#543fe4c094abdc5ebc54e8a5f5e9559ee1b30f55"
+source = "git+https://github.com/scopeclient/zed.git?branch=feature/export-platform-window#76d3936511b02af10b3a7c591069049172006176"
 dependencies = [
  "anyhow",
  "bindgen",
@@ -3860,7 +3860,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af1844ef2428cc3e1cb900be36181049ef3d3193c63e43026cfe202983b27a56"
 dependencies = [
- "proc-macro-crate 3.2.0",
+ "proc-macro-crate 1.3.1",
  "proc-macro2",
  "quote",
  "syn 2.0.87",
@@ -4652,7 +4652,7 @@ dependencies = [
  "quinn-proto",
  "quinn-udp",
  "rustc-hash 2.0.0",
- "rustls 0.23.16",
+ "rustls 0.23.17",
  "socket2 0.5.7",
  "thiserror 2.0.3",
  "tokio",
@@ -4670,7 +4670,7 @@ dependencies = [
  "rand 0.8.5",
  "ring",
  "rustc-hash 2.0.0",
- "rustls 0.23.16",
+ "rustls 0.23.17",
  "rustls-pki-types",
  "slab",
  "thiserror 2.0.3",
@@ -4919,7 +4919,7 @@ dependencies = [
 [[package]]
 name = "refineable"
 version = "0.1.0"
-source = "git+https://github.com/huacnlee/zed.git?branch=export-platform-window#543fe4c094abdc5ebc54e8a5f5e9559ee1b30f55"
+source = "git+https://github.com/scopeclient/zed.git?branch=feature/export-platform-window#76d3936511b02af10b3a7c591069049172006176"
 dependencies = [
  "derive_refineable",
 ]
@@ -5007,11 +5007,11 @@ dependencies = [
  "encoding_rs",
  "futures-core",
  "futures-util",
- "h2 0.4.6",
+ "h2 0.4.7",
  "http 1.1.0",
  "http-body 1.0.1",
  "http-body-util",
- "hyper 1.5.0",
+ "hyper 1.5.1",
  "hyper-rustls 0.27.3",
  "hyper-util",
  "ipnet",
@@ -5022,14 +5022,14 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "quinn",
- "rustls 0.23.16",
+ "rustls 0.23.17",
  "rustls-native-certs",
  "rustls-pemfile 2.2.0",
  "rustls-pki-types",
  "serde",
  "serde_json",
  "serde_urlencoded",
- "sync_wrapper 1.0.1",
+ "sync_wrapper 1.0.2",
  "system-configuration 0.6.1",
  "tokio",
  "tokio-rustls 0.26.0",
@@ -5047,7 +5047,7 @@ dependencies = [
 [[package]]
 name = "reqwest_client"
 version = "0.1.0"
-source = "git+https://github.com/huacnlee/zed.git?branch=export-platform-window#543fe4c094abdc5ebc54e8a5f5e9559ee1b30f55"
+source = "git+https://github.com/scopeclient/zed.git?branch=feature/export-platform-window#76d3936511b02af10b3a7c591069049172006176"
 dependencies = [
  "anyhow",
  "bytes",
@@ -5275,9 +5275,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.16"
+version = "0.23.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eee87ff5d9b36712a58574e12e9f0ea80f915a5b0ac518d322b24a465617925e"
+checksum = "7f1a745511c54ba6d4465e8d5dfbd81b45791756de28d4981af70d6dca128f1e"
 dependencies = [
  "once_cell",
  "ring",
@@ -5406,9 +5406,9 @@ dependencies = [
 
 [[package]]
 name = "schannel"
-version = "0.1.26"
+version = "0.1.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01227be5826fa0690321a2ba6c5cd57a19cf3f6a09e76973b58e61de6ab9d1c1"
+checksum = "1f29ebaa345f945cec9fbbc532eb307f0fdad8161f281b6369539c8d84876b3d"
 dependencies = [
  "windows-sys 0.59.0",
 ]
@@ -5583,7 +5583,7 @@ checksum = "d369a96f978623eb3dc28807c4852d6cc617fed53da5d3c400feff1ef34a714a"
 [[package]]
 name = "semantic_version"
 version = "0.1.0"
-source = "git+https://github.com/huacnlee/zed.git?branch=export-platform-window#543fe4c094abdc5ebc54e8a5f5e9559ee1b30f55"
+source = "git+https://github.com/scopeclient/zed.git?branch=feature/export-platform-window#76d3936511b02af10b3a7c591069049172006176"
 dependencies = [
  "anyhow",
  "serde",
@@ -5712,7 +5712,7 @@ dependencies = [
 [[package]]
 name = "serenity"
 version = "0.12.4"
-source = "git+https://github.com/scopeclient/serenity#f74e1c5a438fe8f98ec2020f74b81fae09ba8337"
+source = "git+https://github.com/scopeclient/serenity#a24c41552b3bab4e8fc391efed29fa8c3e1c164d"
 dependencies = [
  "arrayvec",
  "async-trait",
@@ -6042,7 +6042,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 [[package]]
 name = "sum_tree"
 version = "0.1.0"
-source = "git+https://github.com/huacnlee/zed.git?branch=export-platform-window#543fe4c094abdc5ebc54e8a5f5e9559ee1b30f55"
+source = "git+https://github.com/scopeclient/zed.git?branch=feature/export-platform-window#76d3936511b02af10b3a7c591069049172006176"
 dependencies = [
  "arrayvec",
  "log",
@@ -6184,9 +6184,9 @@ checksum = "2047c6ded9c721764247e62cd3b03c09ffc529b2ba5b10ec482ae507a4a70160"
 
 [[package]]
 name = "sync_wrapper"
-version = "1.0.1"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7065abeca94b6a8a577f9bd45aa0867a2238b74e8eb67cf10d492bc39351394"
+checksum = "0bf256ce5efdfa370213c1dabab5935a12e49f2c58d15e9eac2870d3b4f27263"
 dependencies = [
  "futures-core",
 ]
@@ -6545,7 +6545,7 @@ version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c7bc40d0e5a97695bb96e27995cd3a08538541b0a846f65bba7a359f36700d4"
 dependencies = [
- "rustls 0.23.16",
+ "rustls 0.23.17",
  "rustls-pki-types",
  "tokio",
 ]
@@ -6813,7 +6813,7 @@ dependencies = [
 [[package]]
 name = "ui"
 version = "0.1.0"
-source = "git+https://github.com/longbridgeapp/gpui-component#a4abc164bb55348cea5509ddf69e1dcaa6ea5977"
+source = "git+https://github.com/scopeclient/components#8d6194fc22392cfa840d3a811b903455526203e6"
 dependencies = [
  "anyhow",
  "chrono",
@@ -6992,7 +6992,7 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 [[package]]
 name = "util"
 version = "0.1.0"
-source = "git+https://github.com/huacnlee/zed.git?branch=export-platform-window#543fe4c094abdc5ebc54e8a5f5e9559ee1b30f55"
+source = "git+https://github.com/scopeclient/zed.git?branch=feature/export-platform-window#76d3936511b02af10b3a7c591069049172006176"
 dependencies = [
  "anyhow",
  "async-fs 1.6.0",
