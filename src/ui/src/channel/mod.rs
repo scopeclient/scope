@@ -35,7 +35,7 @@ impl<C: Channel + 'static> ChannelView<C> {
           tokio::spawn(async move {
             match sender.send(l.recv().await) {
               Ok(_) => {}
-              Err(e) => log::error!("Failed to send message data!"),
+              Err(_e) => log::error!("Failed to send message data!"),
             };
           });
 

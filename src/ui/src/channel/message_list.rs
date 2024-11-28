@@ -257,7 +257,7 @@ where
             tokio::spawn(async move {
               match sender.send(list_handle.read().await.get(index).await) {
                 Ok(_) => {}
-                Err(e) => log::error!("Failed to send."),
+                Err(_e) => log::error!("Failed to send."),
               }
             });
 
@@ -309,7 +309,7 @@ where
             tokio::spawn(async move {
               match sender.send(list_handle.read().await.get(index).await) {
                 Ok(_) => {}
-                Err(e) => log::error!("Failed to send."),
+                Err(_e) => log::error!("Failed to send."),
               }
             });
 

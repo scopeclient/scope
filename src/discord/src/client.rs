@@ -1,5 +1,4 @@
 use std::{
-  cell::RefCell,
   collections::HashMap,
   sync::{Arc, OnceLock, Weak},
 };
@@ -8,18 +7,14 @@ use atomic_refcell::AtomicRefCell;
 use dashmap::DashMap;
 use serenity::{
   all::{
-    Cache, CacheHttp, ChannelId, Context, CreateMessage, CurrentUser, EventHandler, GatewayIntents, GetMessages, GuildId, Http, Member, Message,
-    MessageId, ModelError, Ready, User,
+    Cache, CacheHttp, ChannelId, Context, CreateMessage, EventHandler, GatewayIntents, GetMessages, GuildId, Http, Member, Message, MessageId,
+    ModelError, Ready, User,
   },
   async_trait,
 };
 use tokio::sync::{broadcast, RwLock};
 
-use crate::{
-  channel::DiscordChannel,
-  message::{DiscordMessage, DiscordMessageData},
-  snowflake::Snowflake,
-};
+use crate::{channel::DiscordChannel, message::DiscordMessage, snowflake::Snowflake};
 
 #[allow(dead_code)]
 pub struct SerenityClient {

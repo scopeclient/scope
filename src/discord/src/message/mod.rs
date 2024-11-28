@@ -130,10 +130,10 @@ impl Message for DiscordMessage {
       .get_or_init(|| {
         let content = match &self.data {
           DiscordMessageData::Pending { content, .. } => DiscordMessageContent::pending(content.clone()),
-          DiscordMessageData::Received(message, _) => DiscordMessageContent::received(&*message),
+          DiscordMessageData::Received(message, _) => DiscordMessageContent::received(message),
         };
 
-        cx.new_view(|cx| content)
+        cx.new_view(|_cx| content)
       })
       .clone()
   }

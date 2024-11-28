@@ -1,5 +1,5 @@
 use chrono::Local;
-use gpui::{div, img, prelude::FluentBuilder, rgb, Element, IntoElement, ParentElement, Render, Styled, StyledImage, View, WindowContext};
+use gpui::{div, prelude::FluentBuilder, rgb, IntoElement, ParentElement, Styled, WindowContext};
 use scope_chat::message::{IconRenderConfig, Message, MessageAuthor};
 
 #[derive(Clone)]

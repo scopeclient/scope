@@ -122,13 +122,9 @@ impl AsyncList for DiscordChannel {
       return Some(v);
     }
 
-    let result = self.client.get_specific_message(self.channel.id(), MessageId::new(identifier.0)).await;
+    let result = self.client.get_specific_message(self.channel.id(), MessageId::new(identifier.0)).await?;
 
-    if result.is_none() {
-      return None;
-    }
-
-    Some(DiscordMessage::load_serenity(self.client.clone(), Arc::new(result.unwrap())).await)
+    Some(DiscordMessage::load_serenity(self.client.clone(), Arc::new(result)).await)
   }
 
   async fn get(&self, index: AsyncListIndex<Snowflake>) -> Option<AsyncListResult<Self::Content>> {
