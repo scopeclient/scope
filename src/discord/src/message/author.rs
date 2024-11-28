@@ -101,6 +101,6 @@ impl RenderOnce for DisplayIcon {
 
     url.set_query(Some(&querystring::stringify(query_params)));
 
-    img(url.to_string())
+    img(url.to_string()).w_full().h_full().rounded_full()
   }
 }

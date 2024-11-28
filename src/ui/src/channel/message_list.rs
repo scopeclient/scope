@@ -4,7 +4,7 @@ use gpui::{div, list, rgb, Context, IntoElement, ListAlignment, ListState, Model
 use scope_chat::{
   async_list::{AsyncListIndex, AsyncListItem},
   channel::Channel,
-  message::Message,
+  message::{Message, MessageAuthor},
 };
 use tokio::sync::RwLock;
 
@@ -140,7 +140,7 @@ where
             groups.push(Element::Resolved(Some(MessageGroup::new(m.clone()))));
           }
           Some(Element::Resolved(Some(old_group))) => {
-            if m.get_author() == old_group.last().get_author() && m.should_group(old_group.last()) {
+            if m.get_author().get_identifier() == old_group.last().get_author().get_identifier() && m.should_group(old_group.last()) {
               old_group.add(m.clone());
             } else {
               items_added += 1;
@@ -167,8 +167,6 @@ where
     }
 
     let len = groups.len();
-
-    println!("New list state... ✍️");
 
     let new_list_state = ListState::new(
       if len == 0 { 1 } else { len + 2 },
@@ -230,7 +228,6 @@ where
 
     // update bottom
     if flags.after {
-      println!("Updating 🤓☝️");
       let cache_model = self.cache.clone();
       let list_handle = self.list.clone();
 
@@ -359,8 +356,6 @@ where
 
 impl<T: Channel + 'static> Render for MessageListComponent<T> {
   fn render(&mut self, cx: &mut gpui::ViewContext<Self>) -> impl gpui::IntoElement {
-    println!("Rendering Message List 📍");
-
     self.update(cx);
 
     let ls = if let Some(v) = self.list_state.read(cx).clone() {

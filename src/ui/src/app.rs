@@ -22,16 +22,8 @@ impl App {
     ctx
       .foreground_executor()
       .spawn(async move {
-        println!("Trying to make a client...");
-
         let client = DiscordClient::new(token).await;
-
-        println!("Made a client 👶");
-
         let channel = client.channel(Snowflake(demo_channel_id.parse().unwrap())).await;
-
-        println!("Made a channel 👶");
-
         let view = context.new_view(|cx| ChannelView::<DiscordChannel>::create(cx, channel)).unwrap();
 
         async_channel
@@ -49,11 +41,9 @@ impl App {
 
 impl Render for App {
   fn render(&mut self, cx: &mut gpui::ViewContext<Self>) -> impl gpui::IntoElement {
-    println!("Rendering App 📍");
     let mut content = div().w_full().h_full();
 
     if let Some(channel) = self.channel.read(cx).as_ref() {
-      println!("We have a channel");
       content = content.child(channel.clone());
     }
 

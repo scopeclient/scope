@@ -75,8 +75,6 @@ impl DiscordClient {
       }
     });
 
-    println!("Waiting on receiver");
-
     receiver.await.expect("The ready notifier was dropped");
 
     client
@@ -143,8 +141,6 @@ impl DiscordClient {
 impl EventHandler for DiscordClient {
   async fn ready(&self, _: Context, ready: Ready) {
     self.user.get_or_init(|| Arc::new((*ready.user).clone()));
-
-    println!("Got ready");
 
     if let Some(ready_notifier) = self.ready_notifier.borrow_mut().take() {
       ready_notifier.send(()).unwrap();

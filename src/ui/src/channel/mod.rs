@@ -102,8 +102,6 @@ impl<C: Channel + 'static> ChannelView<C> {
 
 impl<C: Channel + 'static> Render for ChannelView<C> {
   fn render(&mut self, _: &mut gpui::ViewContext<Self>) -> impl gpui::IntoElement {
-    println!("Rendering Channel 📍");
-
     div()
       .flex()
       .flex_col()
