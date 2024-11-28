@@ -1,8 +1,9 @@
 use crate::message::reaction::{DiscordMessageReaction, ReactionData};
+use gpui::{div, IntoElement, ParentElement, RenderOnce, Styled, WindowContext};
 use scope_chat::reaction::MessageReactionType::Normal;
 use scope_chat::reaction::{MessageReaction, MessageReactionType, ReactionEmoji, ReactionList, ReactionOperation};
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, IntoElement)]
 pub struct DiscordReactionList {
   reactions: Vec<DiscordMessageReaction>,
 }
@@ -65,5 +66,18 @@ impl ReactionList for DiscordReactionList {
         self.reactions.retain(|reaction| reaction.get_emoji() != emoji);
       }
     }
+  }
+}
+
+impl RenderOnce for DiscordReactionList {
+  fn render(self, _cx: &mut WindowContext) -> impl IntoElement {
+    if self.reactions.is_empty() {
+      return div();
+    }
+
+    div()
+        .flex()
+        .gap_2()
+        .children(self.reactions)
   }
 }

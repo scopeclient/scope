@@ -6,7 +6,7 @@ use crate::{
   snowflake::Snowflake,
 };
 use scope_backend_cache::async_list::{refcacheslice::Exists, AsyncListCache};
-use scope_chat::reaction::ReactionOperation;
+use scope_chat::reaction::ReactionEvent;
 use scope_chat::{
   async_list::{AsyncList, AsyncListIndex, AsyncListItem, AsyncListResult},
   channel::Channel,
@@ -17,7 +17,7 @@ use tokio::sync::{broadcast, Mutex, Semaphore};
 pub struct DiscordChannel {
   channel_id: Snowflake,
   message_receiver: broadcast::Receiver<DiscordMessage>,
-  reaction_receiver: broadcast::Receiver<(String, ReactionOperation)>,
+  reaction_receiver: broadcast::Receiver<ReactionEvent>,
   client: Arc<DiscordClient>,
   cache: Arc<Mutex<AsyncListCache<DiscordMessage>>>,
   blocker: Semaphore,
@@ -49,7 +49,7 @@ impl Channel for DiscordChannel {
     self.message_receiver.resubscribe()
   }
 
-  fn get_reaction_receiver(&self) -> broadcast::Receiver<(String, ReactionOperation)> {
+  fn get_reaction_receiver(&self) -> broadcast::Receiver<ReactionEvent> {
     self.reaction_receiver.resubscribe()
   }
 

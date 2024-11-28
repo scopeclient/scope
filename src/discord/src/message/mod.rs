@@ -3,7 +3,7 @@ use crate::snowflake::Snowflake;
 use author::{DiscordMessageAuthor, DisplayName};
 use chrono::{DateTime, Utc};
 use content::DiscordMessageContent;
-use gpui::{Element, IntoElement};
+use gpui::{div, Element, IntoElement, ParentElement};
 use scope_chat::message::MessageAuthor;
 use scope_chat::reaction::ReactionList;
 use scope_chat::{async_list::AsyncListItem, message::Message};
@@ -26,7 +26,7 @@ pub struct DiscordMessage {
 
 impl DiscordMessage {
   pub fn from_serenity(msg: &serenity::all::Message) -> Self {
-    let reactions = msg.reactions.iter().map(|r| reaction::DiscordMessageReaction::from_message(r)).collect::<Vec<_>>();
+    let reactions = msg.reactions.iter().map(reaction::DiscordMessageReaction::from_message).collect::<Vec<_>>();
     if !reactions.is_empty() {
       println!("Reactions: {:?}", reactions);
     }
@@ -57,7 +57,9 @@ impl Message for DiscordMessage {
   }
 
   fn get_content(&self) -> impl Element {
-    self.content.clone().into_element()
+    div()
+        .child(self.content.clone().into_element())
+        .child(self.reactions.clone())
   }
 
   fn get_identifier(&self) -> String {

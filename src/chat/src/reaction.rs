@@ -1,5 +1,7 @@
 use std::fmt::Debug;
-use gpui::Rgba;
+use gpui::{IntoElement, Rgba};
+
+pub type ReactionEvent = (String, ReactionOperation);
 
 #[derive(Copy, Clone, Debug)]
 pub enum MessageReactionType {
@@ -13,7 +15,7 @@ pub enum ReactionEmoji {
   Custom { url: String, animated: bool, name: Option<String> },
 }
 
-pub trait MessageReaction: Debug {
+pub trait MessageReaction: IntoElement {
   fn get_count(&self, kind: Option<MessageReactionType>) -> u64;
   fn get_self_reaction(&self) -> Option<MessageReactionType>;
   fn get_emoji(&self) -> ReactionEmoji;
@@ -31,7 +33,7 @@ pub enum ReactionOperation {
   RemoveEmoji(ReactionEmoji),
 }
 
-pub trait ReactionList {
+pub trait ReactionList: IntoElement {
   fn get_reactions(&self) -> &Vec<impl MessageReaction>;
   fn get_reaction(&self, emoji: &ReactionEmoji) -> Option<&impl MessageReaction>;
   fn increment(&mut self, emoji: &ReactionEmoji, kind: MessageReactionType, user_is_self: bool, by: isize);

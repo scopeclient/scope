@@ -5479,6 +5479,7 @@ dependencies = [
  "scope-chat",
  "serenity",
  "tokio",
+ "ui",
 ]
 
 [[package]]

@@ -11,7 +11,7 @@ use crate::{
   },
   snowflake::Snowflake,
 };
-use scope_chat::reaction::{MessageReactionType, ReactionOperation};
+use scope_chat::reaction::{MessageReactionType, ReactionEvent, ReactionOperation};
 use serenity::all::Reaction;
 use serenity::{
   all::{Cache, ChannelId, Context, CreateMessage, EventHandler, GatewayIntents, GetMessages, Http, Message, MessageId, Ready},
@@ -31,7 +31,7 @@ struct SerenityClient {
 #[derive(Default)]
 pub struct DiscordClient {
   channel_message_event_handlers: RwLock<HashMap<Snowflake, Vec<broadcast::Sender<DiscordMessage>>>>,
-  channel_reaction_event_handlers: RwLock<HashMap<Snowflake, Vec<broadcast::Sender<(String, ReactionOperation)>>>>,
+  channel_reaction_event_handlers: RwLock<HashMap<Snowflake, Vec<broadcast::Sender<ReactionEvent>>>>,
   client: OnceLock<SerenityClient>,
   user: OnceLock<DiscordMessageAuthor>,
   channels: RwLock<HashMap<Snowflake, Arc<DiscordChannel>>>,
@@ -70,7 +70,7 @@ impl DiscordClient {
     self.channel_message_event_handlers.write().await.entry(channel).or_default().push(sender);
   }
 
-  pub async fn add_channel_reaction_sender(&self, channel: Snowflake, sender: broadcast::Sender<(String, ReactionOperation)>) {
+  pub async fn add_channel_reaction_sender(&self, channel: Snowflake, sender: broadcast::Sender<ReactionEvent>) {
     self.channel_reaction_event_handlers.write().await.entry(channel).or_default().push(sender);
   }
 

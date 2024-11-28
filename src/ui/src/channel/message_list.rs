@@ -7,7 +7,7 @@ use scope_chat::{
   message::Message,
 };
 use tokio::sync::RwLock;
-use scope_chat::reaction::{ReactionList, ReactionOperation};
+use scope_chat::reaction::{ReactionEvent, ReactionList};
 use super::message::{message, MessageGroup};
 
 #[derive(Clone, Copy)]
@@ -115,7 +115,7 @@ where
     });
   }
 
-  pub fn update_reaction(&mut self, cx: &mut ViewContext<Self>, reaction: (String, ReactionOperation)) {
+  pub fn update_reaction(&mut self, cx: &mut ViewContext<Self>, reaction: ReactionEvent) {
     self.cache.update(cx, |borrow: &mut Vec<Element<Option<T::Content>>>, cx| {
       for item in borrow.iter_mut() {
         if let Element::Resolved(Some(haystack)) = item {
