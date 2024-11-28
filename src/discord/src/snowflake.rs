@@ -9,3 +9,9 @@ impl ToString for Snowflake {
     self.content.to_string()
   }
 }
+
+impl <T> From<T> for Snowflake where T: Into<u64> {
+  fn from(content: T) -> Self {
+    Snowflake { content: content.into() }
+  }
+}

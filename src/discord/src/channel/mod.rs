@@ -1,6 +1,12 @@
 use std::sync::Arc;
 
+use crate::{
+  client::DiscordClient,
+  message::{content::DiscordMessageContent, DiscordMessage},
+  snowflake::Snowflake,
+};
 use scope_backend_cache::async_list::{refcacheslice::Exists, AsyncListCache};
+use scope_chat::reaction::ReactionOperation;
 use scope_chat::{
   async_list::{AsyncList, AsyncListIndex, AsyncListItem, AsyncListResult},
   channel::Channel,
@@ -8,15 +14,10 @@ use scope_chat::{
 use serenity::all::{GetMessages, MessageId, Timestamp};
 use tokio::sync::{broadcast, Mutex, Semaphore};
 
-use crate::{
-  client::DiscordClient,
-  message::{content::DiscordMessageContent, DiscordMessage},
-  snowflake::Snowflake,
-};
-
 pub struct DiscordChannel {
   channel_id: Snowflake,
-  receiver: broadcast::Receiver<DiscordMessage>,
+  message_receiver: broadcast::Receiver<DiscordMessage>,
+  reaction_receiver: broadcast::Receiver<(String, ReactionOperation)>,
   client: Arc<DiscordClient>,
   cache: Arc<Mutex<AsyncListCache<DiscordMessage>>>,
   blocker: Semaphore,
@@ -24,13 +25,16 @@ pub struct DiscordChannel {
 
 impl DiscordChannel {
   pub async fn new(client: Arc<DiscordClient>, channel_id: Snowflake) -> Self {
-    let (sender, receiver) = broadcast::channel(10);
+    let (message_sender, message_receiver) = broadcast::channel(10);
+    client.add_channel_message_sender(channel_id, message_sender).await;
 
-    client.add_channel_message_sender(channel_id, sender).await;
+    let (reaction_sender, reaction_receiver) = broadcast::channel(10);
+    client.add_channel_reaction_sender(channel_id, reaction_sender).await;
 
     DiscordChannel {
       channel_id,
-      receiver,
+      message_receiver,
+      reaction_receiver,
       client,
       cache: Arc::new(Mutex::new(AsyncListCache::new())),
       blocker: Semaphore::new(1),
@@ -41,8 +45,12 @@ impl DiscordChannel {
 impl Channel for DiscordChannel {
   type Message = DiscordMessage;
 
-  fn get_receiver(&self) -> broadcast::Receiver<Self::Message> {
-    self.receiver.resubscribe()
+  fn get_message_receiver(&self) -> broadcast::Receiver<Self::Message> {
+    self.message_receiver.resubscribe()
+  }
+
+  fn get_reaction_receiver(&self) -> broadcast::Receiver<(String, ReactionOperation)> {
+    self.reaction_receiver.resubscribe()
   }
 
   fn send_message(&self, content: String, nonce: String) -> DiscordMessage {
@@ -61,7 +69,7 @@ impl Channel for DiscordChannel {
       id: Snowflake { content: 0 },
       nonce: Some(nonce),
       creation_time: Timestamp::now(),
-      reactions: vec![],
+      reactions: Default::default(),
     }
   }
 }
@@ -233,7 +241,8 @@ impl Clone for DiscordChannel {
   fn clone(&self) -> Self {
     Self {
       channel_id: self.channel_id,
-      receiver: self.receiver.resubscribe(),
+      message_receiver: self.message_receiver.resubscribe(),
+      reaction_receiver: self.reaction_receiver.resubscribe(),
       client: self.client.clone(),
       cache: self.cache.clone(),
       blocker: Semaphore::new(1),

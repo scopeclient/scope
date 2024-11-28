@@ -5474,6 +5474,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "gpui",
+ "log",
  "scope-backend-cache",
  "scope-chat",
  "serenity",

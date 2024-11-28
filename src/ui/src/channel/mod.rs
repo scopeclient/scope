@@ -13,7 +13,8 @@ pub struct ChannelView<C: Channel + 'static> {
 
 impl<C: Channel + 'static> ChannelView<C> {
   pub fn create(ctx: &mut gpui::ViewContext<'_, ChannelView<C>>, channel: C) -> Self {
-    let channel_listener = channel.get_receiver();
+    let channel_message_listener = channel.get_message_receiver();
+    let channel_reaction_listener = channel.get_reaction_receiver();
 
     let c2 = channel.clone();
 
@@ -28,7 +29,7 @@ impl<C: Channel + 'static> ChannelView<C> {
         loop {
           let (sender, receiver) = catty::oneshot();
 
-          let mut l = channel_listener.resubscribe();
+          let mut l = channel_message_listener.resubscribe();
 
           tokio::spawn(async move {
             sender.send(l.recv().await).unwrap();
@@ -44,6 +45,32 @@ impl<C: Channel + 'static> ChannelView<C> {
         }
       })
       .detach();
+
+
+    let async_model = list_view.clone();
+    let mut async_ctx = ctx.to_async();
+    ctx
+        .foreground_executor()
+        .spawn(async move {
+          loop {
+            let (sender, receiver) = catty::oneshot();
+
+            let mut l = channel_reaction_listener.resubscribe();
+
+            tokio::spawn(async move {
+              sender.send(l.recv().await).unwrap();
+            });
+
+            let reaction = receiver.await.unwrap().unwrap();
+            async_model
+              .update(&mut async_ctx, |data, ctx| {
+                data.update_reaction(ctx, reaction);
+                ctx.notify();
+              })
+              .unwrap();
+          }
+        })
+        .detach();
 
     let message_input = ctx.new_view(|cx| {
       let mut input = components::input::TextInput::new(cx);

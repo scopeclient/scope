@@ -7,7 +7,7 @@ use scope_chat::{
   message::Message,
 };
 use tokio::sync::RwLock;
-
+use scope_chat::reaction::{ReactionList, ReactionOperation};
 use super::message::{message, MessageGroup};
 
 #[derive(Clone, Copy)]
@@ -112,6 +112,22 @@ where
       cx.update_model(&self.list_state_dirty, |v, _| *v = Some(ListStateDirtyState { new_items: 1, shift: 0 }));
 
       cx.notify();
+    });
+  }
+
+  pub fn update_reaction(&mut self, cx: &mut ViewContext<Self>, reaction: (String, ReactionOperation)) {
+    self.cache.update(cx, |borrow: &mut Vec<Element<Option<T::Content>>>, cx| {
+      for item in borrow.iter_mut() {
+        if let Element::Resolved(Some(haystack)) = item {
+          if haystack.get_identifier() == reaction.0 {
+            let reactions = haystack.get_reactions();
+            reactions.apply(reaction.1);
+
+            cx.notify();
+            return;
+          }
+        }
+      }
     });
   }
 

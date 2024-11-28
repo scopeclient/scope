@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use gpui::Rgba;
 
 #[derive(Copy, Clone, Debug)]
@@ -6,15 +7,33 @@ pub enum MessageReactionType {
   Burst,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ReactionEmoji {
   Simple(String),
   Custom { url: String, animated: bool, name: Option<String> },
 }
 
-pub trait MessageReaction {
+pub trait MessageReaction: Debug {
   fn get_count(&self, kind: Option<MessageReactionType>) -> u64;
   fn get_self_reaction(&self) -> Option<MessageReactionType>;
   fn get_emoji(&self) -> ReactionEmoji;
   fn get_burst_colors(&self) -> Vec<Rgba>;
+  fn increment(&mut self, kind: MessageReactionType, user_is_self: bool, by: isize);
+}
+
+#[derive(Clone, Debug)]
+pub enum ReactionOperation {
+  Add(ReactionEmoji, MessageReactionType),
+  AddSelf(ReactionEmoji, MessageReactionType),
+  Remove(ReactionEmoji),
+  RemoveSelf(ReactionEmoji),
+  RemoveAll,
+  RemoveEmoji(ReactionEmoji),
+}
+
+pub trait ReactionList {
+  fn get_reactions(&self) -> &Vec<impl MessageReaction>;
+  fn get_reaction(&self, emoji: &ReactionEmoji) -> Option<&impl MessageReaction>;
+  fn increment(&mut self, emoji: &ReactionEmoji, kind: MessageReactionType, user_is_self: bool, by: isize);
+  fn apply(&mut self, operation: ReactionOperation);
 }
