@@ -1,4 +1,4 @@
-use crate::message::reaction::DiscordReactionList;
+use crate::message::reaction_list::DiscordReactionList;
 use crate::snowflake::Snowflake;
 use author::{DiscordMessageAuthor, DisplayName};
 use chrono::{DateTime, Utc};
@@ -12,6 +12,7 @@ use serenity::all::Nonce;
 pub mod author;
 pub mod content;
 pub mod reaction;
+pub mod reaction_list;
 
 #[derive(Clone, Debug)]
 pub struct DiscordMessage {
