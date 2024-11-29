@@ -21,14 +21,14 @@ pub enum ReactionData {
 impl ReactionData {
   fn count(&self) -> u64 {
     match self {
-      ReactionData::Message(reaction) => reaction.count,
+      ReactionData::Message(reaction) => reaction.count_details.normal,
       ReactionData::Local { count_normal, .. } => *count_normal,
     }
   }
 
   fn count_burst(&self) -> u64 {
     match self {
-      ReactionData::Message(reaction) => reaction.count,
+      ReactionData::Message(reaction) => reaction.count_details.burst,
       ReactionData::Local { count_burst, .. } => *count_burst,
     }
   }
@@ -154,13 +154,19 @@ impl RenderOnce for DiscordMessageReaction {
     let emoji = self.get_emoji();
     let theme = cx.theme();
     div()
-        .p_1()
+        .px_1()
+        .py_px()
         .border_1()
         .border_color(theme.border)
         .when(self.get_self_reaction().is_some(), |s| s.border_color(theme.accent))
         .bg(theme.panel)
         .rounded_md()
+        .flex()
+        .justify_center()
+        .items_center()
+        .gap_1()
         .child(Self::render_emoji(&emoji))
+        .child(self.get_count(None).to_string())
   }
 }
 
