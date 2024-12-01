@@ -1,5 +1,5 @@
 use components::theme::ActiveTheme;
-use gpui::{div, img, px, AnyElement, IntoElement, ParentElement, RenderOnce, Rgba, Styled, WindowContext};
+use gpui::{div, img, px, AnyElement, InteractiveElement, IntoElement, ParentElement, RenderOnce, Rgba, StatefulInteractiveElement, Styled, WindowContext};
 use gpui::prelude::FluentBuilder;
 use scope_chat::reaction::MessageReactionType::Normal;
 use scope_chat::reaction::{MessageReaction, MessageReactionType, ReactionEmoji};
@@ -152,6 +152,7 @@ impl DiscordMessageReaction {
 impl RenderOnce for DiscordMessageReaction {
   fn render(self, cx: &mut WindowContext) -> impl IntoElement {
     let emoji = self.get_emoji();
+    let async_emoji = emoji.clone();
     let theme = cx.theme();
     div()
         .px_1()
@@ -162,6 +163,10 @@ impl RenderOnce for DiscordMessageReaction {
         .bg(theme.panel)
         .rounded_md()
         .flex()
+        .id("reaction")
+        .on_click(move |_, _| {
+          eprintln!("Reaction {:?} clicked", async_emoji);
+        })
         .justify_center()
         .items_center()
         .gap_1()
