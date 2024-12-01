@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Formatter};
 use gpui::{IntoElement, Rgba};
 
 pub type ReactionEvent = (String, ReactionOperation);
@@ -9,10 +9,19 @@ pub enum MessageReactionType {
   Burst,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum ReactionEmoji {
   Simple(String),
   Custom { url: String, animated: bool, name: Option<String> },
+}
+
+impl Debug for ReactionEmoji {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      ReactionEmoji::Simple(s) => write!(f, "{}", s),
+      ReactionEmoji::Custom { name, .. } => write!(f, ":{}:", name.clone().unwrap_or("<unknown>".to_string())),
+    }
+  }
 }
 
 pub trait MessageReaction: IntoElement {
