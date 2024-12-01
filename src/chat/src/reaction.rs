@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Formatter};
 use gpui::{IntoElement, Rgba};
 
-pub type ReactionEvent = (String, ReactionOperation);
+pub type ReactionEvent<T> = (T, ReactionOperation);
 
 #[derive(Copy, Clone, Debug)]
 pub enum MessageReactionType {

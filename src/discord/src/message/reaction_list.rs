@@ -14,6 +14,14 @@ impl DiscordReactionList {
   }
 }
 
+impl From<&Vec<serenity::all::MessageReaction>> for DiscordReactionList {
+  fn from(reactions: &Vec<serenity::all::MessageReaction>) -> Self {
+    DiscordReactionList {
+      reactions: reactions.iter().map(DiscordMessageReaction::from_message).collect(),
+    }
+  }
+}
+
 impl ReactionList for DiscordReactionList {
   fn get_reactions(&self) -> &Vec<impl MessageReaction> {
     &self.reactions

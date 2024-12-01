@@ -3,24 +3,11 @@ use std::{
   sync::{Arc, OnceLock, Weak},
 };
 
-use crate::{
-  channel::DiscordChannel,
-  message::{
-    author::{DiscordMessageAuthor, DisplayName},
-    DiscordMessage,
-  },
-  snowflake::Snowflake,
-};
-use scope_chat::reaction::{MessageReactionType, ReactionEvent, ReactionOperation};
-use serenity::all::Reaction;
-use serenity::{
-  all::{Cache, ChannelId, Context, CreateMessage, EventHandler, GatewayIntents, GetMessages, Http, Message, MessageId, Ready},
-  async_trait,
-};
-use tokio::sync::{broadcast, RwLock};
 use crate::message::reaction::discord_reaction_to_emoji;
 use atomic_refcell::AtomicRefCell;
 use dashmap::DashMap;
+use scope_chat::reaction::{MessageReactionType, ReactionEvent, ReactionOperation};
+use serenity::all::Reaction;
 use serenity::{
   all::{
     Cache, CacheHttp, ChannelId, Context, CreateMessage, EventHandler, GatewayIntents, GetMessages, GuildId, Http, Member, Message, MessageId,
@@ -53,7 +40,7 @@ impl CacheHttp for SerenityClient {
 #[derive(Default)]
 pub struct DiscordClient {
   channel_message_event_handlers: RwLock<HashMap<ChannelId, Vec<broadcast::Sender<DiscordMessage>>>>,
-  channel_reaction_event_handlers: RwLock<HashMap<Snowflake, Vec<broadcast::Sender<ReactionEvent>>>>,
+  channel_reaction_event_handlers: RwLock<HashMap<ChannelId, Vec<broadcast::Sender<ReactionEvent<Snowflake>>>>>,
   client: OnceLock<SerenityClient>,
   user: OnceLock<Arc<User>>,
   channels: RwLock<HashMap<ChannelId, Arc<DiscordChannel>>>,
@@ -108,7 +95,7 @@ impl DiscordClient {
     self.channel_message_event_handlers.write().await.entry(channel).or_default().push(sender);
   }
 
-  pub async fn add_channel_reaction_sender(&self, channel: Snowflake, sender: broadcast::Sender<ReactionEvent>) {
+  pub async fn add_channel_reaction_sender(&self, channel: ChannelId, sender: broadcast::Sender<ReactionEvent<Snowflake>>) {
     self.channel_reaction_event_handlers.write().await.entry(channel).or_default().push(sender);
   }
 
@@ -152,10 +139,10 @@ impl DiscordClient {
     Some(channel_id.message(self.discord().http.clone(), message_id).await.unwrap())
   }
 
-  async fn send_reaction_operation(&self, channel_id: Snowflake, message_id: MessageId, operation: ReactionOperation) {
+  async fn send_reaction_operation(&self, channel_id: ChannelId, message_id: MessageId, operation: ReactionOperation) {
     if let Some(vec) = self.channel_reaction_event_handlers.read().await.get(&channel_id) {
       for sender in vec {
-        let _ = sender.send((message_id.to_string(), operation.clone()));
+        let _ = sender.send((message_id.into(), operation.clone()));
       }
     }
   }
@@ -194,8 +181,6 @@ impl EventHandler for DiscordClient {
   }
 
   async fn reaction_add(&self, _: Context, reaction: Reaction) {
-    let channel_snowflake = reaction.channel_id.into();
-
     let ty = if reaction.burst {
       MessageReactionType::Burst
     } else {
@@ -203,38 +188,36 @@ impl EventHandler for DiscordClient {
     };
 
     let emoji = discord_reaction_to_emoji(&reaction.emoji);
+    let me_id = self.user.get().expect("User not ready").id;
 
-    let operation = if reaction.member.is_none_or(|member| member.user.id.get() == self.user().id.parse::<u64>().unwrap()) {
+    let operation = if reaction.member.is_none_or(|member| member.user.id == me_id) {
       ReactionOperation::AddSelf(emoji, ty)
     } else {
       ReactionOperation::Add(emoji, ty)
     };
 
-    self.send_reaction_operation(channel_snowflake, reaction.message_id, operation).await;
+    self.send_reaction_operation(reaction.channel_id, reaction.message_id, operation).await;
   }
 
   async fn reaction_remove(&self, _: Context, reaction: Reaction) {
-    let channel_snowflake = reaction.channel_id.into();
-
     let emoji = discord_reaction_to_emoji(&reaction.emoji);
+    let me_id = self.user.get().expect("User not ready").id;
 
-    let operation = if reaction.member.is_none_or(|member| member.user.id.get() == self.user().id.parse::<u64>().unwrap()) {
+    let operation = if reaction.member.is_none_or(|member| member.user.id == me_id) {
       ReactionOperation::RemoveSelf(emoji)
     } else {
       ReactionOperation::Remove(emoji)
     };
 
-    self.send_reaction_operation(channel_snowflake, reaction.message_id, operation).await;
+    self.send_reaction_operation(reaction.channel_id, reaction.message_id, operation).await;
   }
 
   async fn reaction_remove_all(&self, _: Context, channel_id: ChannelId, removed_from_message_id: MessageId) {
-    let channel_snowflake = channel_id.into();
-    self.send_reaction_operation(channel_snowflake, removed_from_message_id, ReactionOperation::RemoveAll).await;
+    self.send_reaction_operation(channel_id, removed_from_message_id, ReactionOperation::RemoveAll).await;
   }
 
   async fn reaction_remove_emoji(&self, _: Context, removed_reactions: Reaction) {
-    let channel_snowflake = removed_reactions.channel_id.into();
     let emoji = discord_reaction_to_emoji(&removed_reactions.emoji);
-    self.send_reaction_operation(channel_snowflake, removed_reactions.message_id, ReactionOperation::RemoveEmoji(emoji)).await;
+    self.send_reaction_operation(removed_reactions.channel_id, removed_reactions.message_id, ReactionOperation::RemoveEmoji(emoji)).await;
   }
 }

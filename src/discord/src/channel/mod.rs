@@ -1,10 +1,5 @@
 use std::sync::{Arc, OnceLock};
 
-use crate::{
-  client::DiscordClient,
-  message::{content::DiscordMessageContent, DiscordMessage},
-  snowflake::Snowflake,
-};
 use chrono::Utc;
 use scope_backend_cache::async_list::{refcacheslice::Exists, AsyncListCache};
 use scope_chat::reaction::ReactionEvent;
@@ -24,7 +19,7 @@ use crate::{
 pub struct DiscordChannel {
   channel: Arc<serenity::model::channel::Channel>,
   message_receiver: broadcast::Receiver<DiscordMessage>,
-  reaction_receiver: broadcast::Receiver<ReactionEvent>,
+  reaction_receiver: broadcast::Receiver<ReactionEvent<Snowflake>>,
   client: Arc<DiscordClient>,
   cache: Arc<Mutex<AsyncListCache<DiscordMessage>>>,
   blocker: Semaphore,
@@ -58,7 +53,7 @@ impl Channel for DiscordChannel {
     self.message_receiver.resubscribe()
   }
 
-  fn get_reaction_receiver(&self) -> broadcast::Receiver<ReactionEvent> {
+  fn get_reaction_receiver(&self) -> broadcast::Receiver<ReactionEvent<Snowflake>> {
     self.reaction_receiver.resubscribe()
   }
 
@@ -82,7 +77,7 @@ impl Channel for DiscordChannel {
         list_item_id: Snowflake::random(),
       },
       content: OnceLock::new(),
-      reactions: Default::default()
+      reactions: Default::default(),
     }
   }
 

@@ -40,8 +40,3 @@ impl From<MessageId> for Snowflake {
   }
 }
 
-impl <T> From<T> for Snowflake where T: Into<u64> {
-  fn from(content: T) -> Self {
-    Snowflake { content: content.into() }
-  }
-}

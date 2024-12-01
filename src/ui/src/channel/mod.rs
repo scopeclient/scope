@@ -14,7 +14,7 @@ pub struct ChannelView<C: Channel + 'static> {
 }
 
 impl<C: Channel + 'static> ChannelView<C> {
-  pub fn create(ctx: &mut gpui::ViewContext<'_, ChannelView<C>>, channel: Arc<C>) -> Self {
+  pub fn create(ctx: &mut gpui::ViewContext<'_, ChannelView<C>>, channel: Arc<C>) -> Self where <C as Channel>::Identifier: Send  {
     let channel_message_listener = channel.get_message_receiver();
     let channel_reaction_listener = channel.get_reaction_receiver();
 

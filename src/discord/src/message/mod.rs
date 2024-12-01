@@ -1,12 +1,10 @@
 use std::sync::{Arc, OnceLock};
 
 use crate::message::reaction_list::DiscordReactionList;
-use author::{DiscordMessageAuthor, DisplayName};
+use author::DiscordMessageAuthor;
 use chrono::{DateTime, Utc};
 use content::DiscordMessageContent;
 use gpui::{View, VisualContext, WindowContext};
-use gpui::{div, Element, IntoElement, ParentElement};
-use scope_chat::message::MessageAuthor;
 use scope_chat::reaction::ReactionList;
 use scope_chat::{async_list::AsyncListItem, message::Message};
 use serenity::all::{ModelError, Nonce};
@@ -35,7 +33,7 @@ pub struct DiscordMessage {
   pub channel: Arc<serenity::model::channel::Channel>,
   pub data: DiscordMessageData,
   pub content: OnceLock<View<DiscordMessageContent>>,
-  pub reactions: Option<DiscordReactionList>,
+  pub reactions: DiscordReactionList,
 }
 
 impl DiscordMessage {
@@ -48,16 +46,11 @@ impl DiscordMessage {
     }
     .unwrap();
 
-    let reactions = msg.reactions.iter().map(reaction::DiscordMessageReaction::from_message).collect::<Vec<_>>();
-    if !reactions.is_empty() {
-      println!("Reactions: {:?}", reactions);
-    }
-
     Self {
       client,
       channel,
+      reactions: (&msg.reactions).into(),
       data: DiscordMessageData::Received(msg, member),
-
       content: OnceLock::new(),
     }
   }
@@ -71,8 +64,8 @@ impl DiscordMessage {
     Self {
       client,
       channel,
+      reactions: (&msg.reactions).into(),
       data: DiscordMessageData::Received(msg, member),
-
       content: OnceLock::new(),
     }
   }
