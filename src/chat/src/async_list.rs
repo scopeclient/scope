@@ -1,4 +1,4 @@
-use std::{fmt::Debug, future::Future, hash::Hash};
+use std::{fmt::Debug, future::Future, hash::Hash, sync::Arc};
 
 pub trait AsyncList {
   type Content: AsyncListItem;
@@ -12,7 +12,30 @@ pub trait AsyncList {
   fn bounded_at_bottom_by(&self) -> impl Future<Output = Option<<Self::Content as AsyncListItem>::Identifier>>;
 }
 
-pub trait AsyncListItem: Clone + Debug {
+impl<L: AsyncList> AsyncList for Arc<L> {
+  type Content = L::Content;
+
+  fn bounded_at_bottom_by(&self) -> impl Future<Output = Option<<Self::Content as AsyncListItem>::Identifier>> {
+    (**self).bounded_at_bottom_by()
+  }
+
+  fn bounded_at_top_by(&self) -> impl Future<Output = Option<<Self::Content as AsyncListItem>::Identifier>> {
+    (**self).bounded_at_top_by()
+  }
+
+  fn find(&self, identifier: &<Self::Content as AsyncListItem>::Identifier) -> impl Future<Output = Option<Self::Content>> {
+    (**self).find(identifier)
+  }
+
+  fn get(
+    &self,
+    index: AsyncListIndex<<Self::Content as AsyncListItem>::Identifier>,
+  ) -> impl Future<Output = Option<AsyncListResult<Self::Content>>> + Send {
+    (**self).get(index)
+  }
+}
+
+pub trait AsyncListItem: Clone {
   type Identifier: Eq + Hash + Clone + Send + Debug;
 
   fn get_list_identifier(&self) -> Self::Identifier;

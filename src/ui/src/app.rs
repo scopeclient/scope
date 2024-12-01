@@ -23,15 +23,7 @@ impl App {
       .foreground_executor()
       .spawn(async move {
         let client = DiscordClient::new(token).await;
-
-        let channel = DiscordChannel::new(
-          client.clone(),
-          Snowflake {
-            content: demo_channel_id.parse().unwrap(),
-          },
-        )
-        .await;
-
+        let channel = client.channel(Snowflake(demo_channel_id.parse().unwrap())).await;
         let view = context.new_view(|cx| ChannelView::<DiscordChannel>::create(cx, channel)).unwrap();
 
         async_channel

@@ -4,11 +4,11 @@ use gpui::{div, list, rgb, Context, IntoElement, ListAlignment, ListState, Model
 use scope_chat::{
   async_list::{AsyncListIndex, AsyncListItem},
   channel::Channel,
-  message::Message,
+  message::{Message, MessageAuthor},
 };
 use tokio::sync::RwLock;
 
-use super::message::{message, MessageGroup};
+use super::message::{message_group, MessageGroup};
 
 #[derive(Clone, Copy)]
 struct ListStateDirtyState {
@@ -140,7 +140,7 @@ where
             groups.push(Element::Resolved(Some(MessageGroup::new(m.clone()))));
           }
           Some(Element::Resolved(Some(old_group))) => {
-            if m.get_author() == old_group.last().get_author() && m.should_group(old_group.last()) {
+            if m.get_author().get_identifier() == old_group.last().get_author().get_identifier() && m.should_group(old_group.last()) {
               old_group.add(m.clone());
             } else {
               items_added += 1;
@@ -191,7 +191,7 @@ where
           match &groups[idx - 1] {
             Element::Unresolved => div().text_color(rgb(0xFFFFFF)).child("Loading..."),
             Element::Resolved(None) => div(), // we've hit the ends
-            Element::Resolved(Some(group)) => div().child(message(group.clone())),
+            Element::Resolved(Some(group)) => div().child(message_group(group.clone(), cx)),
           }
         }
         .into_any_element()
@@ -255,7 +255,10 @@ where
             let (sender, receiver) = catty::oneshot();
 
             tokio::spawn(async move {
-              sender.send(list_handle.read().await.get(index).await).unwrap();
+              match sender.send(list_handle.read().await.get(index).await) {
+                Ok(_) => {}
+                Err(_e) => log::error!("Failed to send."),
+              }
             });
 
             let v = receiver.await.unwrap();
@@ -304,7 +307,10 @@ where
             let (sender, receiver) = catty::oneshot();
 
             tokio::spawn(async move {
-              sender.send(list_handle.read().await.get(index).await).unwrap();
+              match sender.send(list_handle.read().await.get(index).await) {
+                Ok(_) => {}
+                Err(_e) => log::error!("Failed to send."),
+              }
             });
 
             let v = receiver.await.unwrap();
