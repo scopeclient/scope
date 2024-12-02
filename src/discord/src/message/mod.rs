@@ -23,8 +23,9 @@ pub enum DiscordMessageData {
     content: String,
     sent_time: DateTime<Utc>,
     list_item_id: Snowflake,
+    reactions: DiscordReactionList
   },
-  Received(Arc<serenity::model::channel::Message>, Option<Arc<serenity::model::guild::Member>>),
+  Received(Arc<serenity::model::channel::Message>, Option<Arc<serenity::model::guild::Member>>, DiscordReactionList),
 }
 
 #[derive(Clone)]
@@ -33,7 +34,6 @@ pub struct DiscordMessage {
   pub channel: Arc<serenity::model::channel::Channel>,
   pub data: DiscordMessageData,
   pub content: OnceLock<View<DiscordMessageContent>>,
-  pub reactions: DiscordReactionList,
 }
 
 impl DiscordMessage {
@@ -46,11 +46,12 @@ impl DiscordMessage {
     }
     .unwrap();
 
+    let reactions = (&msg.reactions).into();
+
     Self {
       client,
       channel,
-      reactions: (&msg.reactions).into(),
-      data: DiscordMessageData::Received(msg, member),
+      data: DiscordMessageData::Received(msg, member, reactions),
       content: OnceLock::new(),
     }
   }
@@ -61,11 +62,11 @@ impl DiscordMessage {
     channel: Arc<serenity::model::channel::Channel>,
     member: Option<Arc<serenity::model::guild::Member>>,
   ) -> Self {
+    let reactions = (&msg.reactions).into();
     Self {
       client,
       channel,
-      reactions: (&msg.reactions).into(),
-      data: DiscordMessageData::Received(msg, member),
+      data: DiscordMessageData::Received(msg, member, reactions),
       content: OnceLock::new(),
     }
   }
@@ -118,7 +119,7 @@ impl Message for DiscordMessage {
         },
       },
 
-      DiscordMessageData::Received(message, member) => DiscordMessageAuthor {
+      DiscordMessageData::Received(message, member, ..) => DiscordMessageAuthor {
         client: self.client.clone(),
         data: match member {
           None => author::DiscordMessageAuthorData::NonMemberAuthor(message.clone()),
@@ -135,7 +136,7 @@ impl Message for DiscordMessage {
       .get_or_init(|| {
         let content = match &self.data {
           DiscordMessageData::Pending { content, .. } => DiscordMessageContent::pending(content.clone()),
-          DiscordMessageData::Received(message, _) => DiscordMessageContent::received(message),
+          DiscordMessageData::Received(message, _, reactions) => DiscordMessageContent::received(message, reactions),
         };
 
         cx.new_view(|_cx| content)
@@ -145,7 +146,7 @@ impl Message for DiscordMessage {
 
   fn get_identifier(&self) -> Option<Snowflake> {
     match &self.data {
-      DiscordMessageData::Received(message, _) => Some(message.id.into()),
+      DiscordMessageData::Received(message, ..) => Some(message.id.into()),
       DiscordMessageData::Pending { .. } => None,
     }
   }
@@ -153,7 +154,7 @@ impl Message for DiscordMessage {
   fn get_nonce(&self) -> impl PartialEq {
     match &self.data {
       DiscordMessageData::Pending { nonce, .. } => NonceState::Fixed(nonce),
-      DiscordMessageData::Received(message, _) => NonceState::Discord(&message.nonce),
+      DiscordMessageData::Received(message, ..) => NonceState::Discord(&message.nonce),
     }
   }
 
@@ -169,12 +170,15 @@ impl Message for DiscordMessage {
   fn get_timestamp(&self) -> Option<DateTime<Utc>> {
     match &self.data {
       DiscordMessageData::Pending { sent_time, .. } => Some(*sent_time),
-      DiscordMessageData::Received(message, _) => DateTime::from_timestamp_millis(message.timestamp.timestamp_millis()),
+      DiscordMessageData::Received(message, ..) => DateTime::from_timestamp_millis(message.timestamp.timestamp_millis()),
     }
   }
 
   fn get_reactions(&mut self) -> &mut impl ReactionList {
-    &mut self.reactions
+    match &mut self.data {
+      DiscordMessageData::Pending { reactions, .. } => reactions,
+      DiscordMessageData::Received(_, _, reactions) => reactions,
+    }
   }
 }
 
@@ -184,7 +188,7 @@ impl AsyncListItem for DiscordMessage {
   fn get_list_identifier(&self) -> Self::Identifier {
     match &self.data {
       DiscordMessageData::Pending { list_item_id, .. } => *list_item_id,
-      DiscordMessageData::Received(message, _) => message.id.into(),
+      DiscordMessageData::Received(message, ..) => message.id.into(),
     }
   }
 }
