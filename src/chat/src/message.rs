@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use gpui::{IntoElement, Render, View, WindowContext};
 
 use crate::async_list::AsyncListItem;
+use crate::reaction::ReactionList;
 
 pub trait Message: Clone + AsyncListItem + Send {
   type Identifier: Sized + Copy + Clone + Debug + Eq + PartialEq;
@@ -16,6 +17,7 @@ pub trait Message: Clone + AsyncListItem + Send {
   fn get_nonce(&self) -> impl PartialEq;
   fn should_group(&self, previous: &Self) -> bool;
   fn get_timestamp(&self) -> Option<DateTime<Utc>>;
+  fn get_reactions(&mut self) -> &mut impl ReactionList;
 }
 
 #[derive(Debug, Clone, Copy)]

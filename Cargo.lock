@@ -5503,12 +5503,14 @@ dependencies = [
  "chrono",
  "dashmap 6.1.0",
  "gpui",
+ "log",
  "querystring",
  "rand 0.8.5",
  "scope-backend-cache",
  "scope-chat",
  "serenity",
  "tokio",
+ "ui",
  "url",
 ]
 

@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 gpui.workspace = true
+components.workspace = true
 scope-chat = { version = "0.1.0", path = "../chat" }
 serenity = { git = "https://github.com/scopeclient/serenity", version = "0.12" }
 tokio = "1.41.1"
@@ -16,3 +17,4 @@ catty = "0.1.5"
 atomic_refcell = "0.1.13"
 rand = "0.8.5"
 dashmap = "6.1.0"
+log = "0.4.22"
