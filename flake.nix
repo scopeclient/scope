@@ -90,8 +90,8 @@
               exec = "scope";
               icon = "Scope";
               terminal = false;
-              # TODO: keywords
-              keywords = [];
+              keywords = ["discord" "chat"];
+              categories = ["Network" "InstantMessaging"];
               startupWMClass = "Scope";
             })
           ];
