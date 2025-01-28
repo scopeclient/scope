@@ -12,7 +12,7 @@ pub enum MessageReactionType {
 #[derive(Clone, PartialEq)]
 pub enum ReactionEmoji {
   Simple(String),
-  Custom { url: String, animated: bool, name: Option<String> },
+  Custom { url: String, animated: bool, name: Option<String>, id: u64 },
 }
 
 impl Debug for ReactionEmoji {
@@ -25,6 +25,7 @@ impl Debug for ReactionEmoji {
 }
 
 pub trait MessageReaction: IntoElement {
+
   fn get_count(&self, kind: Option<MessageReactionType>) -> u64;
   fn get_self_reaction(&self) -> Option<MessageReactionType>;
   fn get_emoji(&self) -> ReactionEmoji;

@@ -26,7 +26,7 @@ impl AssetSource for Assets {
   }
 }
 
-fn init(_: Arc<AppState>, cx: &mut AppContext) -> Result<()> {
+fn init(_: Arc<AppState>, cx: &mut App) -> Result<()> {
   components::init(cx);
 
   if cfg!(target_os = "macos") {
@@ -50,10 +50,10 @@ async fn main() {
 
   let app_state = Arc::new(AppState {});
 
-  App::new().with_assets(Assets).with_http_client(Arc::new(reqwest_client::ReqwestClient::new())).run(move |cx: &mut AppContext| {
-    AppState::set_global(Arc::downgrade(&app_state), cx);
+  Application::new().with_assets(Assets).with_http_client(Arc::new(reqwest_client::ReqwestClient::new())).run(move |app: &mut App| {
+    AppState::set_global(Arc::downgrade(&app_state), app);
 
-    if let Err(e) = init(app_state.clone(), cx) {
+    if let Err(e) = init(app_state.clone(), app) {
       log::error!("{}", e);
       return;
     }
@@ -64,8 +64,8 @@ async fn main() {
     theme.title_bar = hsl(335.0, 97.0, 61.0);
     theme.background = hsl(225.0, 12.0, 10.0);
 
-    cx.set_global(theme);
-    cx.refresh();
+    app.set_global(theme);
+    app.refresh_windows();
 
     let opts = WindowOptions {
       window_decorations: Some(WindowDecorations::Client),
@@ -78,6 +78,6 @@ async fn main() {
       ..Default::default()
     };
 
-    cx.open_window(opts, |cx| cx.new_view(crate::app::App::new)).unwrap();
+    app.open_window(opts, |window: &mut Window, cx| cx.new(|cx| app::App::new(window, cx))).unwrap();
   });
 }

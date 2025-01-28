@@ -4,7 +4,7 @@ use crate::message::reaction_list::DiscordReactionList;
 use author::DiscordMessageAuthor;
 use chrono::{DateTime, Utc};
 use content::DiscordMessageContent;
-use gpui::{View, VisualContext, WindowContext};
+use gpui::{App, AppContext, Entity};
 use scope_chat::reaction::ReactionList;
 use scope_chat::{async_list::AsyncListItem, message::Message};
 use serenity::all::{ModelError, Nonce};
@@ -23,7 +23,6 @@ pub enum DiscordMessageData {
     content: String,
     sent_time: DateTime<Utc>,
     list_item_id: Snowflake,
-    reactions: DiscordReactionList
   },
   Received(Arc<serenity::model::channel::Message>, Option<Arc<serenity::model::guild::Member>>, DiscordReactionList),
 }
@@ -33,7 +32,7 @@ pub struct DiscordMessage {
   pub client: Arc<DiscordClient>,
   pub channel: Arc<serenity::model::channel::Channel>,
   pub data: DiscordMessageData,
-  pub content: OnceLock<View<DiscordMessageContent>>,
+  pub content: OnceLock<Entity<DiscordMessageContent>>,
 }
 
 impl DiscordMessage {
@@ -46,7 +45,7 @@ impl DiscordMessage {
     }
     .unwrap();
 
-    let reactions = (&msg.reactions).into();
+    let reactions = DiscordReactionList::new_serenity(msg.reactions.clone(), channel.id(), msg.id.clone(), client.clone());
 
     Self {
       client,
@@ -62,7 +61,7 @@ impl DiscordMessage {
     channel: Arc<serenity::model::channel::Channel>,
     member: Option<Arc<serenity::model::guild::Member>>,
   ) -> Self {
-    let reactions = (&msg.reactions).into();
+    let reactions = DiscordReactionList::new_serenity(msg.reactions.clone(), channel.id(), msg.id.clone(), client.clone());
     Self {
       client,
       channel,
@@ -130,7 +129,7 @@ impl Message for DiscordMessage {
   }
 
   // TODO: want reviewer discussion. I'm really stretching the abilities of gpui here and im not sure if this is the right way to do this.
-  fn get_content(&self, cx: &mut WindowContext) -> View<Self::Content> {
+  fn get_content(&self, cx: &mut App) -> Entity<Self::Content> {
     self
       .content
       .get_or_init(|| {
@@ -139,7 +138,7 @@ impl Message for DiscordMessage {
           DiscordMessageData::Received(message, _, reactions) => DiscordMessageContent::received(message, reactions),
         };
 
-        cx.new_view(|_cx| content)
+        cx.new(|_| content)
       })
       .clone()
   }
@@ -174,10 +173,10 @@ impl Message for DiscordMessage {
     }
   }
 
-  fn get_reactions(&mut self) -> &mut impl ReactionList {
+  fn get_reactions(&mut self) -> Option<&mut impl ReactionList> {
     match &mut self.data {
-      DiscordMessageData::Pending { reactions, .. } => reactions,
-      DiscordMessageData::Received(_, _, reactions) => reactions,
+      DiscordMessageData::Pending { .. } => None,
+      DiscordMessageData::Received(_, _, reactions) => Some(reactions),
     }
   }
 }

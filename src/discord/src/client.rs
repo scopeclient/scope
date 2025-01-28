@@ -6,8 +6,8 @@ use std::{
 use crate::message::reaction::discord_reaction_to_emoji;
 use atomic_refcell::AtomicRefCell;
 use dashmap::DashMap;
-use scope_chat::reaction::{MessageReactionType, ReactionEvent, ReactionOperation};
-use serenity::all::Reaction;
+use scope_chat::reaction::{MessageReactionType, ReactionEmoji, ReactionEvent, ReactionOperation};
+use serenity::all::{EmojiId, Reaction, ReactionType};
 use serenity::{
   all::{
     Cache, CacheHttp, ChannelId, Context, CreateMessage, EventHandler, GatewayIntents, GetMessages, GuildId, Http, Member, Message, MessageId,
@@ -145,6 +145,19 @@ impl DiscordClient {
         let _ = sender.send((message_id.into(), operation.clone()));
       }
     }
+  }
+
+  pub async fn add_reaction(&self, channel_id: ChannelId, message_id: MessageId, emoji: ReactionEmoji) {
+    let reaction_type = match emoji {
+      ReactionEmoji::Simple(c) => ReactionType::Unicode(c),
+      ReactionEmoji::Custom { name, animated, id, .. } => ReactionType::Custom {
+        id: EmojiId::new(id),
+        animated,
+        name,
+      },
+    };
+
+    channel_id.create_reaction(self.discord().http.clone(), message_id, reaction_type).await.unwrap();
   }
 }
 

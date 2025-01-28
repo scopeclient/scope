@@ -1,9 +1,10 @@
 use components::theme::ActiveTheme;
-use gpui::{div, img, px, AnyElement, InteractiveElement, IntoElement, ParentElement, RenderOnce, Rgba, StatefulInteractiveElement, Styled, WindowContext};
 use gpui::prelude::FluentBuilder;
+use gpui::{div, img, px, AnyElement, App, IntoElement, ParentElement, RenderOnce, Rgba, Styled};
 use scope_chat::reaction::MessageReactionType::Normal;
 use scope_chat::reaction::{MessageReaction, MessageReactionType, ReactionEmoji};
 use serenity::all::ReactionType;
+use std::fmt::Debug;
 use MessageReactionType::Burst;
 
 #[derive(Clone, Debug)]
@@ -46,7 +47,7 @@ impl DiscordMessageReaction {
     }
   }
 
-  fn use_local(&mut self) {
+  fn swap_to_local(&mut self) {
     let (count_normal, count_burst) = match &self.data {
       ReactionData::Message(reaction) => (reaction.count_details.normal, reaction.count_details.burst),
       ReactionData::Local {
@@ -62,6 +63,12 @@ impl DiscordMessageReaction {
       me,
       emoji,
       burst_colours,
+    }
+  }
+  fn render_emoji(emoji: &ReactionEmoji) -> AnyElement {
+    match emoji {
+      ReactionEmoji::Simple(character) => div().text_size(px(12f32)).child(character.clone()).into_any_element(),
+      ReactionEmoji::Custom { url, .. } => img(url.clone()).w(px(16f32)).h(px(16f32)).into_any_element(),
     }
   }
 }
@@ -114,7 +121,7 @@ impl MessageReaction for DiscordMessageReaction {
   }
 
   fn increment(&mut self, kind: MessageReactionType, user_is_self: bool, by: isize) {
-    self.use_local();
+    self.swap_to_local();
     match kind {
       Burst => {
         if let ReactionData::Local { count_burst, .. } = &mut self.data {
@@ -140,47 +147,34 @@ impl MessageReaction for DiscordMessageReaction {
   }
 }
 
-impl DiscordMessageReaction {
-  fn render_emoji(emoji: &ReactionEmoji) -> AnyElement {
-    match emoji {
-      ReactionEmoji::Simple(character) => div().text_size(px(12f32)).child(character.clone()).into_any_element(),
-      ReactionEmoji::Custom { url, .. } => img(url.clone()).w(px(16f32)).h(px(16f32)).into_any_element(),
-    }
-  }
-}
-
 impl RenderOnce for DiscordMessageReaction {
-  fn render(self, cx: &mut WindowContext) -> impl IntoElement {
+  fn render(self, _: &mut gpui::Window, cx: &mut App) -> impl IntoElement {
     let emoji = self.get_emoji();
-    let async_emoji = emoji.clone();
     let theme = cx.theme();
     div()
-        .px_1()
-        .py_px()
-        .border_1()
-        .border_color(theme.border)
-        .when(self.get_self_reaction().is_some(), |s| s.border_color(theme.accent))
-        .bg(theme.panel)
-        .rounded_md()
-        .flex()
-        .id("reaction")
-        .on_click(move |_, _| {
-          eprintln!("Reaction {:?} clicked", async_emoji);
-        })
-        .justify_center()
-        .items_center()
-        .gap_1()
-        .child(Self::render_emoji(&emoji))
-        .child(self.get_count(None).to_string())
+      .px_1()
+      .py_px()
+      .border_1()
+      .border_color(theme.border)
+      .when(self.get_self_reaction().is_some(), |s| s.border_color(theme.accent))
+      .bg(theme.panel)
+      .rounded_md()
+      .flex()
+      .justify_center()
+      .items_center()
+      .gap_1()
+      .child(Self::render_emoji(&emoji))
+      .child(self.get_count(None).to_string())
   }
 }
 
-pub fn discord_reaction_to_emoji(reaction: &serenity::all::ReactionType) -> ReactionEmoji {
+pub fn discord_reaction_to_emoji(reaction: &ReactionType) -> ReactionEmoji {
   match reaction {
     ReactionType::Custom { animated, id, name } => ReactionEmoji::Custom {
       url: format!("https://cdn.discordapp.com/emojis/{}.png", id),
       animated: *animated,
       name: name.clone(),
+      id: id.get(),
     },
     ReactionType::Unicode(character) => ReactionEmoji::Simple(character.clone()),
     ty => {

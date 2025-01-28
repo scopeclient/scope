@@ -1,23 +1,41 @@
+use crate::client::DiscordClient;
 use crate::message::reaction::{DiscordMessageReaction, ReactionData};
-use gpui::{div, IntoElement, ParentElement, RenderOnce, Styled, WindowContext};
+use gpui::{div, App, IntoElement, ParentElement, RenderOnce, Styled};
 use scope_chat::reaction::MessageReactionType::Normal;
 use scope_chat::reaction::{MessageReaction, MessageReactionType, ReactionEmoji, ReactionList, ReactionOperation};
+use serenity::all::{ChannelId, MessageId};
+use std::fmt::Debug;
+use std::sync::Arc;
 
-#[derive(Clone, Debug, Default, IntoElement)]
+#[derive(Clone, IntoElement)]
 pub struct DiscordReactionList {
   reactions: Vec<DiscordMessageReaction>,
+  message_id: MessageId,
+  channel_id: ChannelId,
+  client: Arc<DiscordClient>,
 }
 
 impl DiscordReactionList {
-  pub fn new(reactions: Vec<DiscordMessageReaction>) -> Self {
-    DiscordReactionList { reactions }
+  pub fn new(reactions: Vec<DiscordMessageReaction>, channel_id: ChannelId, message_id: MessageId, client: Arc<DiscordClient>) -> Self {
+    DiscordReactionList {
+      reactions,
+      message_id,
+      channel_id,
+      client,
+    }
   }
-}
 
-impl From<&Vec<serenity::all::MessageReaction>> for DiscordReactionList {
-  fn from(reactions: &Vec<serenity::all::MessageReaction>) -> Self {
+  pub fn new_serenity(
+    reactions: Vec<serenity::all::MessageReaction>,
+    channel_id: ChannelId,
+    message_id: MessageId,
+    client: Arc<DiscordClient>,
+  ) -> Self {
     DiscordReactionList {
       reactions: reactions.iter().map(DiscordMessageReaction::from_message).collect(),
+      message_id,
+      channel_id,
+      client,
     }
   }
 }
@@ -78,14 +96,17 @@ impl ReactionList for DiscordReactionList {
 }
 
 impl RenderOnce for DiscordReactionList {
-  fn render(self, _cx: &mut WindowContext) -> impl IntoElement {
+  fn render(self, _: &mut gpui::Window, _: &mut App) -> impl IntoElement {
     if self.reactions.is_empty() {
       return div();
     }
 
-    div()
-        .flex()
-        .gap_2()
-        .children(self.reactions)
+    div().flex().gap_2().children(self.reactions)
+  }
+}
+
+impl Debug for DiscordReactionList {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_set().entries(self.reactions.iter()).finish()
   }
 }
