@@ -49,7 +49,7 @@ impl DiscordMessage {
     }
     .unwrap();
 
-    let reactions = DiscordReactionList::new(msg.reactions.clone(), channel.id(), msg.id.clone(), client.clone());
+    let reactions = DiscordReactionList::new(msg.reactions.clone(), channel.id(), msg.id, client.clone());
 
     Self {
       client,
@@ -65,7 +65,7 @@ impl DiscordMessage {
     channel: Arc<serenity::model::channel::Channel>,
     member: Option<Arc<serenity::model::guild::Member>>,
   ) -> Self {
-    let reactions = DiscordReactionList::new(msg.reactions.clone(), channel.id(), msg.id.clone(), client.clone());
+    let reactions = DiscordReactionList::new(msg.reactions.clone(), channel.id(), msg.id, client.clone());
     Self {
       client,
       channel,

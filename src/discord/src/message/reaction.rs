@@ -180,8 +180,8 @@ impl RenderOnce for DiscordMessageReaction {
     let emoji = self.get_emoji();
     let theme = cx.theme();
 
-    let channel = self.channel_id.clone();
-    let message = self.message_id.clone();
+    let channel = self.channel_id;
+    let message = self.message_id;
     let closure_emoji = self.get_emoji();
     let client = self.client.clone();
     let users = self.users.clone();
@@ -206,7 +206,7 @@ impl RenderOnce for DiscordMessageReaction {
       .tooltip(move |win, cx| {
         let guard = users.lock().unwrap();
         let text = if guard.is_some() {
-          guard.as_ref().clone().unwrap().join(", ")
+          guard.as_ref().unwrap().join(", ")
         } else {
           "Loading...".to_string()
         };

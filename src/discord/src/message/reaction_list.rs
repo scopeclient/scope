@@ -21,7 +21,7 @@ impl DiscordReactionList {
   pub fn new(reactions: Vec<serenity::all::MessageReaction>, channel_id: ChannelId, message_id: MessageId, client: Arc<DiscordClient>) -> Self {
     DiscordReactionList {
       reactions: Arc::new(AtomicRefCell::new(
-        reactions.iter().map(|reaction| DiscordMessageReaction::new(reaction, client.clone(), message_id.clone(), channel_id.clone())).collect(),
+        reactions.iter().map(|reaction| DiscordMessageReaction::new(reaction, client.clone(), message_id, channel_id)).collect(),
       )),
       message_id,
       channel_id,
@@ -52,8 +52,8 @@ impl ReactionList for DiscordReactionList {
           burst_colours: vec![],
         },
         client: self.client.clone(),
-        message_id: self.message_id.clone(),
-        channel_id: self.channel_id.clone(),
+        message_id: self.message_id,
+        channel_id: self.channel_id,
         users: Arc::new(Mutex::new(None)),
       };
 
@@ -86,7 +86,9 @@ impl ReactionList for DiscordReactionList {
         if let Some(reaction) = self.reactions.borrow_mut().iter_mut().find(|reaction| reaction.get_emoji() == emoji) {
           let mut reactions = reaction.users.lock().unwrap();
           reactions.replace(members);
-          self.entity.get().as_ref().map(|entity| cx.notify(entity.entity_id()));
+          if let Some(entity) = self.entity.get() {
+            cx.notify(entity.entity_id());
+          }
         }
       }
     }
