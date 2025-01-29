@@ -24,7 +24,11 @@ pub enum DiscordMessageData {
     sent_time: DateTime<Utc>,
     list_item_id: Snowflake,
   },
-  Received(Arc<serenity::model::channel::Message>, Option<Arc<serenity::model::guild::Member>>, DiscordReactionList),
+  Received(
+    Arc<serenity::model::channel::Message>,
+    Option<Arc<serenity::model::guild::Member>>,
+    DiscordReactionList,
+  ),
 }
 
 #[derive(Clone)]
@@ -32,7 +36,7 @@ pub struct DiscordMessage {
   pub client: Arc<DiscordClient>,
   pub channel: Arc<serenity::model::channel::Channel>,
   pub data: DiscordMessageData,
-  pub content: OnceLock<Entity<DiscordMessageContent>>,
+  pub content: Arc<OnceLock<Entity<DiscordMessageContent>>>,
 }
 
 impl DiscordMessage {
@@ -45,13 +49,13 @@ impl DiscordMessage {
     }
     .unwrap();
 
-    let reactions = DiscordReactionList::new_serenity(msg.reactions.clone(), channel.id(), msg.id.clone(), client.clone());
+    let reactions = DiscordReactionList::new(msg.reactions.clone(), channel.id(), msg.id.clone(), client.clone());
 
     Self {
       client,
       channel,
       data: DiscordMessageData::Received(msg, member, reactions),
-      content: OnceLock::new(),
+      content: Arc::new(OnceLock::new()),
     }
   }
 
@@ -61,12 +65,12 @@ impl DiscordMessage {
     channel: Arc<serenity::model::channel::Channel>,
     member: Option<Arc<serenity::model::guild::Member>>,
   ) -> Self {
-    let reactions = DiscordReactionList::new_serenity(msg.reactions.clone(), channel.id(), msg.id.clone(), client.clone());
+    let reactions = DiscordReactionList::new(msg.reactions.clone(), channel.id(), msg.id.clone(), client.clone());
     Self {
       client,
       channel,
       data: DiscordMessageData::Received(msg, member, reactions),
-      content: OnceLock::new(),
+      content: Arc::new(OnceLock::new()),
     }
   }
 }
@@ -129,18 +133,18 @@ impl Message for DiscordMessage {
   }
 
   // TODO: want reviewer discussion. I'm really stretching the abilities of gpui here and im not sure if this is the right way to do this.
+  // Additional Context to this discussion: the OnceLock in context CANNOT be cloned because it messes with the internal gpui entityids
+  // and recreates the entity on every interaction making it impossible to interact with the message content in any way. Right now, I'm
+  // using an arc for this, but this feels like a band-aid solution. I do agree that this should be refactored out at some point.
   fn get_content(&self, cx: &mut App) -> Entity<Self::Content> {
     self
       .content
       .get_or_init(|| {
-        let content = match &self.data {
+        cx.new(|_| match &self.data {
           DiscordMessageData::Pending { content, .. } => DiscordMessageContent::pending(content.clone()),
           DiscordMessageData::Received(message, _, reactions) => DiscordMessageContent::received(message, reactions),
-        };
-
-        cx.new(|_| content)
-      })
-      .clone()
+        })
+      }).clone()
   }
 
   fn get_identifier(&self) -> Option<Snowflake> {

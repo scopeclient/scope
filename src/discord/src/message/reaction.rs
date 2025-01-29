@@ -1,10 +1,12 @@
+use crate::client::DiscordClient;
 use components::theme::ActiveTheme;
 use gpui::prelude::FluentBuilder;
-use gpui::{div, img, px, AnyElement, App, IntoElement, ParentElement, RenderOnce, Rgba, Styled};
+use gpui::{div, img, px, AnyElement, App, InteractiveElement, IntoElement, ParentElement, RenderOnce, Rgba, StatefulInteractiveElement, Styled};
 use scope_chat::reaction::MessageReactionType::Normal;
 use scope_chat::reaction::{MessageReaction, MessageReactionType, ReactionEmoji};
-use serenity::all::ReactionType;
+use serenity::all::{ChannelId, MessageId, ReactionType};
 use std::fmt::Debug;
+use std::sync::Arc;
 use MessageReactionType::Burst;
 
 #[derive(Clone, Debug)]
@@ -35,15 +37,21 @@ impl ReactionData {
   }
 }
 
-#[derive(Clone, Debug, IntoElement)]
+#[derive(Clone, IntoElement)]
 pub struct DiscordMessageReaction {
   pub data: ReactionData,
+  pub(crate) client: Arc<DiscordClient>,
+  pub(crate) message_id: MessageId,
+  pub(crate) channel_id: ChannelId,
 }
 
 impl DiscordMessageReaction {
-  pub fn from_message(reaction: &serenity::all::MessageReaction) -> Self {
+  pub fn new(reaction: &serenity::all::MessageReaction, client: Arc<DiscordClient>, message_id: MessageId, channel_id: ChannelId) -> Self {
     DiscordMessageReaction {
       data: ReactionData::Message(reaction.clone()),
+      client,
+      message_id,
+      channel_id,
     }
   }
 
@@ -70,6 +78,18 @@ impl DiscordMessageReaction {
       ReactionEmoji::Simple(character) => div().text_size(px(12f32)).child(character.clone()).into_any_element(),
       ReactionEmoji::Custom { url, .. } => img(url.clone()).w(px(16f32)).h(px(16f32)).into_any_element(),
     }
+  }
+
+  fn handle_click(&self, app: &App) {
+    let reaction = self.clone();
+    let had_reaction = reaction.get_self_reaction().is_some();
+    app.spawn(|_| async move {
+      if had_reaction {
+        reaction.client.remove_reaction(reaction.channel_id, reaction.message_id, reaction.get_emoji()).await;
+      } else {
+        reaction.client.add_reaction(reaction.channel_id, reaction.message_id, reaction.get_emoji()).await;
+      }
+    }).detach();
   }
 }
 
@@ -165,6 +185,10 @@ impl RenderOnce for DiscordMessageReaction {
       .gap_1()
       .child(Self::render_emoji(&emoji))
       .child(self.get_count(None).to_string())
+      .id("reaction")
+      .on_click(move |_, _, app| {
+        self.handle_click(app);
+      })
   }
 }
 
@@ -181,5 +205,11 @@ pub fn discord_reaction_to_emoji(reaction: &ReactionType) -> ReactionEmoji {
       eprintln!("Unsupported reaction type: {:?}", ty);
       ReactionEmoji::Simple("❓".to_string())
     }
+  }
+}
+
+impl Debug for DiscordMessageReaction {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("DiscordMessageReaction").field("data", &self.data).finish()
   }
 }

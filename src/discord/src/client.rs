@@ -56,7 +56,6 @@ impl DiscordClient {
     let client = Arc::new_cyclic(|weak| DiscordClient {
       ready_notifier: AtomicRefCell::new(Some(sender)),
       weak: weak.clone(),
-
       ..Default::default()
     });
 
@@ -147,17 +146,25 @@ impl DiscordClient {
     }
   }
 
-  pub async fn add_reaction(&self, channel_id: ChannelId, message_id: MessageId, emoji: ReactionEmoji) {
-    let reaction_type = match emoji {
+  fn emoji_to_serenity(emoji: &ReactionEmoji) -> ReactionType {
+    match emoji.clone() {
       ReactionEmoji::Simple(c) => ReactionType::Unicode(c),
       ReactionEmoji::Custom { name, animated, id, .. } => ReactionType::Custom {
         id: EmojiId::new(id),
         animated,
         name,
       },
-    };
+    }
+  }
 
+  pub async fn add_reaction(&self, channel_id: ChannelId, message_id: MessageId, emoji: ReactionEmoji) {
+    let reaction_type = Self::emoji_to_serenity(&emoji);
     channel_id.create_reaction(self.discord().http.clone(), message_id, reaction_type).await.unwrap();
+  }
+
+  pub async fn remove_reaction(&self, channel_id: ChannelId, message_id: MessageId, emoji: ReactionEmoji) {
+    let reaction_type = Self::emoji_to_serenity(&emoji);
+    channel_id.delete_reaction(self.discord().http.clone(), message_id, None, reaction_type).await.unwrap();
   }
 }
 

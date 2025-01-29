@@ -1,5 +1,7 @@
 use std::fmt::{Debug, Formatter};
-use gpui::{IntoElement, Rgba};
+use std::sync::Arc;
+use atomic_refcell::AtomicRefCell;
+use gpui::{App, IntoElement, Rgba};
 
 pub type ReactionEvent<T> = (T, ReactionOperation);
 
@@ -43,9 +45,9 @@ pub enum ReactionOperation {
   RemoveEmoji(ReactionEmoji),
 }
 
-pub trait ReactionList: IntoElement {
-  fn get_reactions(&self) -> &Vec<impl MessageReaction>;
-  fn get_reaction(&self, emoji: &ReactionEmoji) -> Option<&impl MessageReaction>;
+pub trait ReactionList {
+  fn get_reactions(&self) -> &Arc<AtomicRefCell<Vec<impl MessageReaction>>>;
   fn increment(&mut self, emoji: &ReactionEmoji, kind: MessageReactionType, user_is_self: bool, by: isize);
   fn apply(&mut self, operation: ReactionOperation);
+  fn get_content(&self, cx: &mut App) -> impl IntoElement;
 }

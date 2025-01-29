@@ -10,3 +10,4 @@ gpui = { git = "https://github.com/scopeclient/zed.git", branch = "feature/expor
 ] }
 components = { package = "ui", git = "https://github.com/scopeclient/components", version = "0.1.0" }
 reqwest_client = { git = "https://github.com/scopeclient/zed.git", branch = "feature/export-platform-window", version = "0.1.0" }
+atomic_refcell = "0.1.13"

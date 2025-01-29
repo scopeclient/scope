@@ -59,20 +59,12 @@ impl<C: Channel + 'static> ChannelView<C> {
     ctx
       .foreground_executor()
       .spawn(async move {
+        let mut l = channel_reaction_listener.resubscribe();
         loop {
-          let (sender, receiver) = catty::oneshot();
-
-          let mut l = channel_reaction_listener.resubscribe();
-
-          tokio::spawn(async move {
-            sender.send(l.recv().await).unwrap();
-          });
-
-          let reaction = receiver.await.unwrap().unwrap();
+          let reaction = l.recv().await.unwrap();
           async_model
-            .update(&mut async_ctx, |data, ctx| {
-              data.update_reaction(ctx, reaction);
-              ctx.notify();
+            .update(&mut async_ctx, |data, cx| {
+              data.update_reaction(cx, reaction);
             })
             .unwrap();
         }

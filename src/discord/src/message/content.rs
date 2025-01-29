@@ -2,6 +2,7 @@ use crate::message::reaction_list::DiscordReactionList;
 use gpui::prelude::FluentBuilder;
 use gpui::{div, Context, IntoElement, ParentElement, Render, Styled, Window};
 use serenity::all::Message;
+use scope_chat::reaction::ReactionList;
 
 #[derive(Clone, Debug)]
 pub struct DiscordMessageContent {
@@ -29,10 +30,10 @@ impl DiscordMessageContent {
 }
 
 impl Render for DiscordMessageContent {
-  fn render(&mut self, _: &mut Window, _: &mut Context<DiscordMessageContent>) -> impl IntoElement {
+  fn render(&mut self, _: &mut Window, cx: &mut Context<DiscordMessageContent>) -> impl IntoElement {
     div()
       .opacity(if self.is_pending { 0.25 } else { 1.0 })
       .child(self.content.clone())
-      .when_some(self.reactions.clone(), |d, reactions| d.child(reactions))
+      .when_some(self.reactions.clone(), |d, reactions| d.child(reactions.get_content(cx)))
   }
 }

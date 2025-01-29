@@ -76,7 +76,7 @@ impl Channel for DiscordChannel {
         sent_time: Utc::now(),
         list_item_id: Snowflake::random(),
       },
-      content: OnceLock::new(),
+      content: Arc::new(OnceLock::new()),
     }
   }
 
