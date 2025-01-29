@@ -122,7 +122,7 @@ where
         if let Element::Resolved(Some(haystack)) = item {
           if haystack.get_identifier() == Some(reaction.0) {
             if let Some(reactions) = haystack.get_reactions() {
-              reactions.apply(reaction.1);
+              reactions.apply(reaction.1, cx);
             }
 
             cx.notify();

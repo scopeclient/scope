@@ -1,12 +1,12 @@
 use crate::client::DiscordClient;
 use crate::message::reaction::{DiscordMessageReaction, ReactionData};
+use atomic_refcell::{AtomicRef, AtomicRefCell};
 use gpui::{div, App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window};
 use scope_chat::reaction::MessageReactionType::Normal;
 use scope_chat::reaction::{MessageReaction, MessageReactionType, ReactionEmoji, ReactionList, ReactionOperation};
 use serenity::all::{ChannelId, MessageId};
 use std::fmt::Debug;
-use std::sync::{Arc, OnceLock};
-use atomic_refcell::{AtomicRef, AtomicRefCell};
+use std::sync::{Arc, Mutex, OnceLock};
 
 #[derive(Clone)]
 pub struct DiscordReactionList {
@@ -14,17 +14,19 @@ pub struct DiscordReactionList {
   message_id: MessageId,
   channel_id: ChannelId,
   client: Arc<DiscordClient>,
-  entity: Arc<OnceLock<Entity<RenderableReactionList>>>
+  entity: Arc<OnceLock<Entity<RenderableReactionList>>>,
 }
 
 impl DiscordReactionList {
   pub fn new(reactions: Vec<serenity::all::MessageReaction>, channel_id: ChannelId, message_id: MessageId, client: Arc<DiscordClient>) -> Self {
     DiscordReactionList {
-      reactions: Arc::new(AtomicRefCell::new(reactions.iter().map(|reaction| DiscordMessageReaction::new(reaction, client.clone(), message_id.clone(), channel_id.clone())).collect())),
+      reactions: Arc::new(AtomicRefCell::new(
+        reactions.iter().map(|reaction| DiscordMessageReaction::new(reaction, client.clone(), message_id.clone(), channel_id.clone())).collect(),
+      )),
       message_id,
       channel_id,
       client,
-      entity: Arc::new(OnceLock::new())
+      entity: Arc::new(OnceLock::new()),
     }
   }
 }
@@ -52,6 +54,7 @@ impl ReactionList for DiscordReactionList {
         client: self.client.clone(),
         message_id: self.message_id.clone(),
         channel_id: self.channel_id.clone(),
+        users: Arc::new(Mutex::new(None)),
       };
 
       reaction.increment(kind, user_is_self, by);
@@ -59,7 +62,7 @@ impl ReactionList for DiscordReactionList {
     }
   }
 
-  fn apply(&mut self, operation: ReactionOperation) {
+  fn apply(&mut self, operation: ReactionOperation, cx: &mut App) {
     match operation {
       ReactionOperation::Add(emoji, ty) => {
         self.increment(&emoji, ty, false, 1);
@@ -78,6 +81,13 @@ impl ReactionList for DiscordReactionList {
       }
       ReactionOperation::RemoveEmoji(emoji) => {
         self.reactions.borrow_mut().retain(|reaction| reaction.get_emoji() != emoji);
+      }
+      ReactionOperation::SetMembers(emoji, members) => {
+        if let Some(reaction) = self.reactions.borrow_mut().iter_mut().find(|reaction| reaction.get_emoji() == emoji) {
+          let mut reactions = reaction.users.lock().unwrap();
+          reactions.replace(members);
+          self.entity.get().as_ref().map(|entity| cx.notify(entity.entity_id()));
+        }
       }
     }
   }

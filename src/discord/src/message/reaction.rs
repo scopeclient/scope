@@ -1,12 +1,16 @@
 use crate::client::DiscordClient;
 use components::theme::ActiveTheme;
+use components::tooltip::Tooltip;
 use gpui::prelude::FluentBuilder;
-use gpui::{div, img, px, AnyElement, App, InteractiveElement, IntoElement, ParentElement, RenderOnce, Rgba, StatefulInteractiveElement, Styled};
+use gpui::{
+  div, img, px, AnyElement, App, InteractiveElement, IntoElement, ParentElement, RenderOnce, Rgba,
+  StatefulInteractiveElement, Styled,
+};
 use scope_chat::reaction::MessageReactionType::Normal;
 use scope_chat::reaction::{MessageReaction, MessageReactionType, ReactionEmoji};
 use serenity::all::{ChannelId, MessageId, ReactionType};
 use std::fmt::Debug;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use MessageReactionType::Burst;
 
 #[derive(Clone, Debug)]
@@ -43,6 +47,7 @@ pub struct DiscordMessageReaction {
   pub(crate) client: Arc<DiscordClient>,
   pub(crate) message_id: MessageId,
   pub(crate) channel_id: ChannelId,
+  pub(crate) users: Arc<Mutex<Option<Vec<String>>>>,
 }
 
 impl DiscordMessageReaction {
@@ -52,6 +57,7 @@ impl DiscordMessageReaction {
       client,
       message_id,
       channel_id,
+      users: Arc::new(Mutex::new(None)),
     }
   }
 
@@ -83,13 +89,15 @@ impl DiscordMessageReaction {
   fn handle_click(&self, app: &App) {
     let reaction = self.clone();
     let had_reaction = reaction.get_self_reaction().is_some();
-    app.spawn(|_| async move {
-      if had_reaction {
-        reaction.client.remove_reaction(reaction.channel_id, reaction.message_id, reaction.get_emoji()).await;
-      } else {
-        reaction.client.add_reaction(reaction.channel_id, reaction.message_id, reaction.get_emoji()).await;
-      }
-    }).detach();
+    app
+      .spawn(|_| async move {
+        if had_reaction {
+          reaction.client.remove_reaction(reaction.channel_id, reaction.message_id, reaction.get_emoji()).await;
+        } else {
+          reaction.client.add_reaction(reaction.channel_id, reaction.message_id, reaction.get_emoji()).await;
+        }
+      })
+      .detach();
   }
 }
 
@@ -171,6 +179,12 @@ impl RenderOnce for DiscordMessageReaction {
   fn render(self, _: &mut gpui::Window, cx: &mut App) -> impl IntoElement {
     let emoji = self.get_emoji();
     let theme = cx.theme();
+
+    let channel = self.channel_id.clone();
+    let message = self.message_id.clone();
+    let closure_emoji = self.get_emoji();
+    let client = self.client.clone();
+    let users = self.users.clone();
     div()
       .px_1()
       .py_px()
@@ -188,6 +202,22 @@ impl RenderOnce for DiscordMessageReaction {
       .id("reaction")
       .on_click(move |_, _, app| {
         self.handle_click(app);
+      })
+      .tooltip(move |win, cx| {
+        let guard = users.lock().unwrap();
+        let text = if guard.is_some() {
+          guard.as_ref().clone().unwrap().join(", ")
+        } else {
+          "Loading...".to_string()
+        };
+        Tooltip::new(text, win, cx)
+      })
+      .on_hover(move |_, _, _| {
+        let client = client.clone();
+        let emoji = closure_emoji.clone();
+        tokio::spawn(async move {
+          client.load_users_reacting_to(channel, message, emoji).await;
+        });
       })
   }
 }

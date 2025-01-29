@@ -157,14 +157,28 @@ impl DiscordClient {
     }
   }
 
+  pub async fn load_users_reacting_to(&self, channel_id: ChannelId, message_id: MessageId, emoji: ReactionEmoji) {
+    let reactions = channel_id.reaction_users(self.discord().http.clone(), message_id, Self::emoji_to_serenity(&emoji), Some(5), None).await;
+    if reactions.is_err() {return;}
+    let reactions = reactions.unwrap().iter().map(|user|user.name.clone()).collect();
+
+    self.send_reaction_operation(channel_id, message_id, ReactionOperation::SetMembers(emoji, reactions)).await;
+  }
+
   pub async fn add_reaction(&self, channel_id: ChannelId, message_id: MessageId, emoji: ReactionEmoji) {
     let reaction_type = Self::emoji_to_serenity(&emoji);
     channel_id.create_reaction(self.discord().http.clone(), message_id, reaction_type).await.unwrap();
+
+    // Refresh reactions in UI
+    self.load_users_reacting_to(channel_id, message_id, emoji).await;
   }
 
   pub async fn remove_reaction(&self, channel_id: ChannelId, message_id: MessageId, emoji: ReactionEmoji) {
     let reaction_type = Self::emoji_to_serenity(&emoji);
     channel_id.delete_reaction(self.discord().http.clone(), message_id, None, reaction_type).await.unwrap();
+
+    // Refresh reactions in UI
+    self.load_users_reacting_to(channel_id, message_id, emoji).await;
   }
 }
 
