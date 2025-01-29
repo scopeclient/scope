@@ -1,6 +1,6 @@
 use crate::client::DiscordClient;
 use crate::message::reaction::{DiscordMessageReaction, ReactionData};
-use gpui::{div, App, AppContext, Context, Entity, IntoElement, ParentElement, Render, RenderOnce, Styled, Window};
+use gpui::{div, App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window};
 use scope_chat::reaction::MessageReactionType::Normal;
 use scope_chat::reaction::{MessageReaction, MessageReactionType, ReactionEmoji, ReactionList, ReactionOperation};
 use serenity::all::{ChannelId, MessageId};
@@ -83,7 +83,7 @@ impl ReactionList for DiscordReactionList {
   }
 
   fn get_content(&self, cx: &mut App) -> impl IntoElement {
-    self.entity.get_or_init(|| cx.new(|cx| RenderableReactionList::new(self.clone()))).clone()
+    self.entity.get_or_init(|| cx.new(|_| RenderableReactionList::new(self.clone()))).clone()
   }
 }
 
@@ -104,7 +104,7 @@ impl RenderableReactionList {
 }
 
 impl Render for RenderableReactionList {
-  fn render(&mut self, window: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
+  fn render(&mut self, _: &mut Window, _: &mut Context<'_, Self>) -> impl IntoElement {
     if self.list.reactions.borrow().is_empty() {
       return div();
     }
