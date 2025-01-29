@@ -80,7 +80,7 @@ enum NonceState<'r> {
   Discord(&'r Option<Nonce>),
 }
 
-impl<'r> PartialEq for NonceState<'r> {
+impl PartialEq for NonceState<'_> {
   fn eq(&self, other: &Self) -> bool {
     match (self, other) {
       // comparing anything with `None` means they are not equal
