@@ -2,10 +2,7 @@ use crate::client::DiscordClient;
 use components::theme::ActiveTheme;
 use components::tooltip::Tooltip;
 use gpui::prelude::FluentBuilder;
-use gpui::{
-  div, img, px, AnyElement, App, InteractiveElement, IntoElement, ParentElement, RenderOnce, Rgba,
-  StatefulInteractiveElement, Styled,
-};
+use gpui::{div, img, px, AnyElement, App, InteractiveElement, IntoElement, ParentElement, RenderOnce, Rgba, StatefulInteractiveElement, Styled};
 use scope_chat::reaction::MessageReactionType::Normal;
 use scope_chat::reaction::{MessageReaction, MessageReactionType, ReactionEmoji};
 use serenity::all::{ChannelId, MessageId, ReactionType};
@@ -206,7 +203,13 @@ impl RenderOnce for DiscordMessageReaction {
       .tooltip(move |win, cx| {
         let guard = users.lock().unwrap();
         let text = if guard.is_some() {
-          guard.as_ref().unwrap().join(", ")
+          let vec = guard.as_ref().unwrap();
+          let first5 = vec.iter().take(5).cloned().collect::<Vec<_>>().join(", ");
+          if vec.len() > 5 {
+            format!("{}...", first5)
+          } else {
+            first5
+          }
         } else {
           "Loading...".to_string()
         };

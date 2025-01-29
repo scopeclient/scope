@@ -158,7 +158,7 @@ impl DiscordClient {
   }
 
   pub async fn load_users_reacting_to(&self, channel_id: ChannelId, message_id: MessageId, emoji: ReactionEmoji) {
-    let reactions = channel_id.reaction_users(self.discord().http.clone(), message_id, Self::emoji_to_serenity(&emoji), Some(5), None).await;
+    let reactions = channel_id.reaction_users(self.discord().http.clone(), message_id, Self::emoji_to_serenity(&emoji), Some(6), None).await;
     if reactions.is_err() {return;}
     let reactions = reactions.unwrap().iter().map(|user|user.name.clone()).collect();
 
