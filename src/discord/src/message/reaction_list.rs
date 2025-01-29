@@ -37,10 +37,11 @@ impl ReactionList for DiscordReactionList {
   }
 
   fn increment(&mut self, emoji: &ReactionEmoji, kind: MessageReactionType, user_is_self: bool, by: isize) {
-    if let Some(reaction) = self.reactions.borrow_mut().iter_mut().find(|reaction| reaction.get_emoji() == *emoji) {
+    let mut reactions = self.reactions.borrow_mut();
+    if let Some(reaction) = reactions.iter_mut().find(|reaction| reaction.get_emoji() == *emoji) {
       reaction.increment(kind, user_is_self, by);
       if reaction.get_count(None) == 0 {
-        self.reactions.borrow_mut().retain(|reaction| reaction.get_emoji() != *emoji);
+        reactions.retain(|reaction| reaction.get_emoji() != *emoji);
       }
     } else if by > 0 {
       let mut reaction = DiscordMessageReaction {
@@ -58,7 +59,7 @@ impl ReactionList for DiscordReactionList {
       };
 
       reaction.increment(kind, user_is_self, by);
-      self.reactions.borrow_mut().push(reaction);
+      reactions.push(reaction);
     }
   }
 
