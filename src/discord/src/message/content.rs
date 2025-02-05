@@ -1,27 +1,39 @@
-use gpui::{div, IntoElement, ParentElement, Render, Styled, ViewContext};
+use crate::message::reaction_list::DiscordReactionList;
+use gpui::prelude::FluentBuilder;
+use gpui::{div, Context, IntoElement, ParentElement, Render, Styled, Window};
 use serenity::all::Message;
+use scope_chat::reaction::ReactionList;
 
 #[derive(Clone, Debug)]
 pub struct DiscordMessageContent {
   pub content: String,
   pub is_pending: bool,
+  pub reactions: Option<DiscordReactionList>,
 }
 
 impl DiscordMessageContent {
   pub fn pending(content: String) -> DiscordMessageContent {
-    DiscordMessageContent { content, is_pending: true }
+    DiscordMessageContent {
+      content,
+      is_pending: true,
+      reactions: None,
+    }
   }
 
-  pub fn received(message: &Message) -> DiscordMessageContent {
+  pub fn received(message: &Message, reactions: &DiscordReactionList) -> DiscordMessageContent {
     DiscordMessageContent {
       content: message.content.clone(),
       is_pending: false,
+      reactions: Some(reactions.clone()),
     }
   }
 }
 
 impl Render for DiscordMessageContent {
-  fn render(&mut self, _: &mut ViewContext<DiscordMessageContent>) -> impl IntoElement {
-    div().opacity(if self.is_pending { 0.25 } else { 1.0 }).child(self.content.clone())
+  fn render(&mut self, _: &mut Window, cx: &mut Context<DiscordMessageContent>) -> impl IntoElement {
+    div()
+      .opacity(if self.is_pending { 0.25 } else { 1.0 })
+      .child(self.content.clone())
+      .when_some(self.reactions.clone(), |d, reactions| d.child(reactions.get_content(cx)))
   }
 }

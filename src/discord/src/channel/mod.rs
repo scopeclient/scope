@@ -2,6 +2,7 @@ use std::sync::{Arc, OnceLock};
 
 use chrono::Utc;
 use scope_backend_cache::async_list::{refcacheslice::Exists, AsyncListCache};
+use scope_chat::reaction::ReactionEvent;
 use scope_chat::{
   async_list::{AsyncList, AsyncListIndex, AsyncListItem, AsyncListResult},
   channel::Channel,
@@ -17,8 +18,8 @@ use crate::{
 
 pub struct DiscordChannel {
   channel: Arc<serenity::model::channel::Channel>,
-
-  receiver: broadcast::Receiver<DiscordMessage>,
+  message_receiver: broadcast::Receiver<DiscordMessage>,
+  reaction_receiver: broadcast::Receiver<ReactionEvent<Snowflake>>,
   client: Arc<DiscordClient>,
   cache: Arc<Mutex<AsyncListCache<DiscordMessage>>>,
   blocker: Semaphore,
@@ -26,15 +27,17 @@ pub struct DiscordChannel {
 
 impl DiscordChannel {
   pub(crate) async fn new(client: Arc<DiscordClient>, channel_id: ChannelId) -> Self {
-    let (sender, receiver) = broadcast::channel(10);
-
-    client.add_channel_message_sender(channel_id, sender).await;
-
     let channel = Arc::new(channel_id.to_channel(client.discord()).await.unwrap());
+    let (message_sender, message_receiver) = broadcast::channel(10);
+    client.add_channel_message_sender(channel_id, message_sender).await;
+
+    let (reaction_sender, reaction_receiver) = broadcast::channel(10);
+    client.add_channel_reaction_sender(channel_id, reaction_sender).await;
 
     DiscordChannel {
       channel,
-      receiver,
+      message_receiver,
+      reaction_receiver,
       client,
       cache: Arc::new(Mutex::new(AsyncListCache::new())),
       blocker: Semaphore::new(1),
@@ -46,8 +49,12 @@ impl Channel for DiscordChannel {
   type Message = DiscordMessage;
   type Identifier = Snowflake;
 
-  fn get_receiver(&self) -> broadcast::Receiver<Self::Message> {
-    self.receiver.resubscribe()
+  fn get_message_receiver(&self) -> broadcast::Receiver<Self::Message> {
+    self.message_receiver.resubscribe()
+  }
+
+  fn get_reaction_receiver(&self) -> broadcast::Receiver<ReactionEvent<Snowflake>> {
+    self.reaction_receiver.resubscribe()
   }
 
   fn send_message(&self, content: String, nonce: String) -> DiscordMessage {
@@ -69,7 +76,7 @@ impl Channel for DiscordChannel {
         sent_time: Utc::now(),
         list_item_id: Snowflake::random(),
       },
-      content: OnceLock::new(),
+      content: Arc::new(OnceLock::new()),
     }
   }
 
@@ -255,7 +262,8 @@ impl Clone for DiscordChannel {
   fn clone(&self) -> Self {
     Self {
       channel: self.channel.clone(),
-      receiver: self.receiver.resubscribe(),
+      message_receiver: self.message_receiver.resubscribe(),
+      reaction_receiver: self.reaction_receiver.resubscribe(),
       client: self.client.clone(),
       cache: self.cache.clone(),
       blocker: Semaphore::new(1),

@@ -1,5 +1,5 @@
 use chrono::Local;
-use gpui::{div, prelude::FluentBuilder, rgb, IntoElement, ParentElement, Styled, WindowContext};
+use gpui::{div, prelude::FluentBuilder, rgb, IntoElement, ParentElement, Styled};
 use scope_chat::message::{IconRenderConfig, Message, MessageAuthor};
 
 #[derive(Clone)]
@@ -42,7 +42,7 @@ impl<M: Message> MessageGroup<M> {
   }
 }
 
-pub fn message_group<M: Message>(group: MessageGroup<M>, cx: &mut WindowContext) -> impl IntoElement {
+pub fn message_group<M: Message>(group: MessageGroup<M>, cx: &mut gpui::App) -> impl IntoElement {
   div()
     .flex()
     .flex_row()

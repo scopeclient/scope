@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use gpui::{div, list, rgb, Context, IntoElement, ListAlignment, ListState, Model, ParentElement, Pixels, Render, Styled, ViewContext};
+use gpui::{div, list, rgb, AppContext, Context, Entity, IntoElement, ListAlignment, ListState, ParentElement, Pixels, Render, Styled};
 use scope_chat::{
   async_list::{AsyncListIndex, AsyncListItem},
   channel::Channel,
@@ -9,6 +9,7 @@ use scope_chat::{
 use tokio::sync::RwLock;
 
 use super::message::{message_group, MessageGroup};
+use scope_chat::reaction::{ReactionEvent, ReactionList};
 
 #[derive(Clone, Copy)]
 struct ListStateDirtyState {
@@ -33,14 +34,14 @@ where
   C::Content: 'static,
 {
   list: Arc<RwLock<C>>,
-  cache: Model<Vec<Element<Option<C::Content>>>>,
+  cache: Entity<Vec<Element<Option<C::Content>>>>,
   overdraw: Pixels,
 
   // top, bottom
-  bounds_flags: Model<BoundFlags>,
+  bounds_flags: Entity<BoundFlags>,
 
-  list_state: Model<Option<ListState>>,
-  list_state_dirty: Model<Option<ListStateDirtyState>>,
+  list_state: Entity<Option<ListState>>,
+  list_state_dirty: Entity<Option<ListStateDirtyState>>,
 }
 
 pub enum StartAt {
@@ -52,10 +53,10 @@ impl<T: Channel> MessageListComponent<T>
 where
   T: 'static,
 {
-  pub fn create(cx: &mut ViewContext<Self>, list: T, overdraw: Pixels) -> Self {
-    let cache = cx.new_model(|_| Default::default());
-    let list_state = cx.new_model(|_| None);
-    let list_state_dirty = cx.new_model(|_| None);
+  pub fn create(cx: &mut Context<Self>, list: T, overdraw: Pixels) -> Self {
+    let cache = cx.new(|_| Default::default());
+    let list_state = cx.new(|_| None);
+    let list_state_dirty = cx.new(|_| None);
 
     let lsc = list_state.clone();
 
@@ -83,13 +84,13 @@ where
       list: Arc::new(RwLock::new(list)),
       cache,
       overdraw,
-      bounds_flags: cx.new_model(|_| BoundFlags { before: false, after: false }),
+      bounds_flags: cx.new(|_| BoundFlags { before: false, after: false }),
       list_state,
       list_state_dirty,
     }
   }
 
-  pub fn append_message(&mut self, cx: &mut ViewContext<Self>, message: T::Message) {
+  pub fn append_message(&mut self, cx: &mut Context<Self>, message: T::Message) {
     self.cache.update(cx, |borrow, cx| {
       for item in borrow.iter_mut() {
         if let Element::Resolved(Some(haystack)) = item {
@@ -115,7 +116,24 @@ where
     });
   }
 
-  fn list_state(&self, cx: &mut gpui::ViewContext<Self>) -> ListState {
+  pub fn update_reaction(&mut self, cx: &mut Context<Self>, reaction: ReactionEvent<T::Identifier>) {
+    self.cache.update(cx, |borrow: &mut Vec<Element<Option<T::Content>>>, cx| {
+      for item in borrow.iter_mut() {
+        if let Element::Resolved(Some(haystack)) = item {
+          if haystack.get_identifier() == Some(reaction.0) {
+            if let Some(reactions) = haystack.get_reactions() {
+              reactions.apply(reaction.1, cx);
+            }
+
+            cx.notify();
+            return;
+          }
+        }
+      }
+    });
+  }
+
+  fn list_state(&self, cx: &mut gpui::Context<Self>) -> ListState {
     let bounds_model = self.bounds_flags.clone();
 
     let list_state_dirty = *self.list_state_dirty.read(cx);
@@ -172,7 +190,7 @@ where
       if len == 0 { 1 } else { len + 2 },
       ListAlignment::Bottom,
       self.overdraw,
-      move |idx, cx| {
+      move |idx, _, cx| {
         if len == 0 {
           cx.update_model(&bounds_model, |v, _| v.after = true);
 
@@ -221,7 +239,7 @@ where
     new_list_state
   }
 
-  fn update(&mut self, cx: &mut gpui::ViewContext<Self>) {
+  fn update(&mut self, cx: &mut gpui::Context<Self>) {
     let mut dirty = None;
 
     let mut flags = *self.bounds_flags.read(cx);
@@ -355,7 +373,7 @@ where
 }
 
 impl<T: Channel + 'static> Render for MessageListComponent<T> {
-  fn render(&mut self, cx: &mut gpui::ViewContext<Self>) -> impl gpui::IntoElement {
+  fn render(&mut self, _: &mut gpui::Window, cx: &mut Context<Self>) -> impl gpui::IntoElement {
     self.update(cx);
 
     let ls = if let Some(v) = self.list_state.read(cx).clone() {

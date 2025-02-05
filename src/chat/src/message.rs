@@ -1,9 +1,10 @@
 use std::fmt::Debug;
 
 use chrono::{DateTime, Utc};
-use gpui::{IntoElement, Render, View, WindowContext};
+use gpui::{IntoElement, Render, Entity, App};
 
 use crate::async_list::AsyncListItem;
+use crate::reaction::ReactionList;
 
 pub trait Message: Clone + AsyncListItem + Send {
   type Identifier: Sized + Copy + Clone + Debug + Eq + PartialEq;
@@ -11,11 +12,12 @@ pub trait Message: Clone + AsyncListItem + Send {
   type Content: Render;
 
   fn get_author(&self) -> Self::Author;
-  fn get_content(&self, cx: &mut WindowContext) -> View<Self::Content>;
+  fn get_content(&self, cx: &mut App) -> Entity<Self::Content>;
   fn get_identifier(&self) -> Option<<Self as Message>::Identifier>;
   fn get_nonce(&self) -> impl PartialEq;
   fn should_group(&self, previous: &Self) -> bool;
   fn get_timestamp(&self) -> Option<DateTime<Utc>>;
+  fn get_reactions(&mut self) -> Option<&mut impl ReactionList>;
 }
 
 #[derive(Debug, Clone, Copy)]

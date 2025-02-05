@@ -3,8 +3,11 @@ use std::{
   sync::{Arc, OnceLock, Weak},
 };
 
+use crate::message::reaction::discord_reaction_to_emoji;
 use atomic_refcell::AtomicRefCell;
 use dashmap::DashMap;
+use scope_chat::reaction::{MessageReactionType, ReactionEmoji, ReactionEvent, ReactionOperation};
+use serenity::all::{EmojiId, Reaction, ReactionType};
 use serenity::{
   all::{
     Cache, CacheHttp, ChannelId, Context, CreateMessage, EventHandler, GatewayIntents, GetMessages, GuildId, Http, Member, Message, MessageId,
@@ -37,6 +40,7 @@ impl CacheHttp for SerenityClient {
 #[derive(Default)]
 pub struct DiscordClient {
   channel_message_event_handlers: RwLock<HashMap<ChannelId, Vec<broadcast::Sender<DiscordMessage>>>>,
+  channel_reaction_event_handlers: RwLock<HashMap<ChannelId, Vec<broadcast::Sender<ReactionEvent<Snowflake>>>>>,
   client: OnceLock<SerenityClient>,
   user: OnceLock<Arc<User>>,
   channels: RwLock<HashMap<ChannelId, Arc<DiscordChannel>>>,
@@ -52,7 +56,6 @@ impl DiscordClient {
     let client = Arc::new_cyclic(|weak| DiscordClient {
       ready_notifier: AtomicRefCell::new(Some(sender)),
       weak: weak.clone(),
-
       ..Default::default()
     });
 
@@ -89,6 +92,10 @@ impl DiscordClient {
 
   pub async fn add_channel_message_sender(&self, channel: ChannelId, sender: broadcast::Sender<DiscordMessage>) {
     self.channel_message_event_handlers.write().await.entry(channel).or_default().push(sender);
+  }
+
+  pub async fn add_channel_reaction_sender(&self, channel: ChannelId, sender: broadcast::Sender<ReactionEvent<Snowflake>>) {
+    self.channel_reaction_event_handlers.write().await.entry(channel).or_default().push(sender);
   }
 
   pub async fn channel(self: Arc<Self>, channel_id: Snowflake) -> Arc<DiscordChannel> {
@@ -130,6 +137,49 @@ impl DiscordClient {
     // FIXME: proper error handling
     Some(channel_id.message(self.discord().http.clone(), message_id).await.unwrap())
   }
+
+  async fn send_reaction_operation(&self, channel_id: ChannelId, message_id: MessageId, operation: ReactionOperation) {
+    if let Some(vec) = self.channel_reaction_event_handlers.read().await.get(&channel_id) {
+      for sender in vec {
+        let _ = sender.send((message_id.into(), operation.clone()));
+      }
+    }
+  }
+
+  fn emoji_to_serenity(emoji: &ReactionEmoji) -> ReactionType {
+    match emoji.clone() {
+      ReactionEmoji::Simple(c) => ReactionType::Unicode(c),
+      ReactionEmoji::Custom { name, animated, id, .. } => ReactionType::Custom {
+        id: EmojiId::new(id),
+        animated,
+        name,
+      },
+    }
+  }
+
+  pub async fn load_users_reacting_to(&self, channel_id: ChannelId, message_id: MessageId, emoji: ReactionEmoji) {
+    let reactions = channel_id.reaction_users(self.discord().http.clone(), message_id, Self::emoji_to_serenity(&emoji), Some(6), None).await;
+    if reactions.is_err() {return;}
+    let reactions = reactions.unwrap().iter().map(|user|user.name.clone()).collect();
+
+    self.send_reaction_operation(channel_id, message_id, ReactionOperation::SetMembers(emoji, reactions)).await;
+  }
+
+  pub async fn add_reaction(&self, channel_id: ChannelId, message_id: MessageId, emoji: ReactionEmoji) {
+    let reaction_type = Self::emoji_to_serenity(&emoji);
+    channel_id.create_reaction(self.discord().http.clone(), message_id, reaction_type).await.unwrap();
+
+    // Refresh reactions in UI
+    self.load_users_reacting_to(channel_id, message_id, emoji).await;
+  }
+
+  pub async fn remove_reaction(&self, channel_id: ChannelId, message_id: MessageId, emoji: ReactionEmoji) {
+    let reaction_type = Self::emoji_to_serenity(&emoji);
+    channel_id.delete_reaction(self.discord().http.clone(), message_id, None, reaction_type).await.unwrap();
+
+    // Refresh reactions in UI
+    self.load_users_reacting_to(channel_id, message_id, emoji).await;
+  }
 }
 
 #[async_trait]
@@ -162,5 +212,46 @@ impl EventHandler for DiscordClient {
         ));
       }
     }
+  }
+
+  async fn reaction_add(&self, _: Context, reaction: Reaction) {
+    let ty = if reaction.burst {
+      MessageReactionType::Burst
+    } else {
+      MessageReactionType::Normal
+    };
+
+    let emoji = discord_reaction_to_emoji(&reaction.emoji);
+    let me_id = self.user.get().expect("User not ready").id;
+
+    let operation = if reaction.member.is_none_or(|member| member.user.id == me_id) {
+      ReactionOperation::AddSelf(emoji, ty)
+    } else {
+      ReactionOperation::Add(emoji, ty)
+    };
+
+    self.send_reaction_operation(reaction.channel_id, reaction.message_id, operation).await;
+  }
+
+  async fn reaction_remove(&self, _: Context, reaction: Reaction) {
+    let emoji = discord_reaction_to_emoji(&reaction.emoji);
+    let me_id = self.user.get().expect("User not ready").id;
+
+    let operation = if reaction.member.is_none_or(|member| member.user.id == me_id) {
+      ReactionOperation::RemoveSelf(emoji)
+    } else {
+      ReactionOperation::Remove(emoji)
+    };
+
+    self.send_reaction_operation(reaction.channel_id, reaction.message_id, operation).await;
+  }
+
+  async fn reaction_remove_all(&self, _: Context, channel_id: ChannelId, removed_from_message_id: MessageId) {
+    self.send_reaction_operation(channel_id, removed_from_message_id, ReactionOperation::RemoveAll).await;
+  }
+
+  async fn reaction_remove_emoji(&self, _: Context, removed_reactions: Reaction) {
+    let emoji = discord_reaction_to_emoji(&removed_reactions.emoji);
+    self.send_reaction_operation(removed_reactions.channel_id, removed_reactions.message_id, ReactionOperation::RemoveEmoji(emoji)).await;
   }
 }
