@@ -78,7 +78,13 @@ impl DiscordMessageReaction {
   }
   fn render_emoji(emoji: &ReactionEmoji) -> AnyElement {
     match emoji {
-      ReactionEmoji::Simple(character) => div().text_size(px(12f32)).child(character.clone()).into_any_element(),
+      ReactionEmoji::Simple(character) => {
+        if cfg!(feature = "twemoji") {
+          img(format!("twemoji/{}", character)).w(px(16f32)).h(px(16f32)).into_any_element()
+        } else {
+          div().text_size(px(12f32)).child(character.clone()).into_any_element()
+        }
+      }
       ReactionEmoji::Custom { url, .. } => img(url.clone()).w(px(16f32)).h(px(16f32)).into_any_element(),
     }
   }

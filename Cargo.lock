@@ -5558,6 +5558,7 @@ dependencies = [
  "scope-chat",
  "scope-util",
  "tokio",
+ "twemoji-assets",
  "ui",
 ]
 
@@ -5587,6 +5588,7 @@ dependencies = [
  "scope-chat",
  "serenity",
  "tokio",
+ "twemoji-assets",
  "ui",
  "url",
 ]
@@ -6880,6 +6882,12 @@ dependencies = [
  "url",
  "utf-8",
 ]
+
+[[package]]
+name = "twemoji-assets"
+version = "1.3.0+15.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80d025c23299766dbecaea9047ddf23e51ab324a42d8b1662aaa3347ff58161c"
 
 [[package]]
 name = "typeid"
