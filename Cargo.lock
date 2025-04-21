@@ -1080,7 +1080,7 @@ dependencies = [
 [[package]]
 name = "command_attr"
 version = "0.5.3"
-source = "git+https://github.com/scopeclient/serenity#a24c41552b3bab4e8fc391efed29fa8c3e1c164d"
+source = "git+https://github.com/scopeclient/serenity?branch=dev#c93776fffae61d23b3b0307656cb0db2d05b58af"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5744,7 +5744,7 @@ dependencies = [
 [[package]]
 name = "serenity"
 version = "0.12.4"
-source = "git+https://github.com/scopeclient/serenity#a24c41552b3bab4e8fc391efed29fa8c3e1c164d"
+source = "git+https://github.com/scopeclient/serenity?branch=dev#c93776fffae61d23b3b0307656cb0db2d05b58af"
 dependencies = [
  "arrayvec",
  "async-trait",
