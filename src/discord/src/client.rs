@@ -129,6 +129,8 @@ pub struct DiscordClient {
   pub(crate) dms: DashMap<ChannelId, DmChannel>,
   pub(crate) unread: UnreadTracker,
   own_presence: Mutex<Option<OwnPresence>>,
+  /// Channels whose failed history load was already announced.
+  history_notices: DashSet<ChannelId>,
   /// Messages with a re-fetch already scheduled (see [`REACTION_REFRESH_COALESCE`]).
   pending_refreshes: DashSet<(ChannelId, MessageId)>,
   /// Who reacted, per (message, emoji label) — session-local, fed by reaction
@@ -306,10 +308,29 @@ impl DiscordClient {
       return Some(dm.to_channel(&self.own_user()));
     }
 
+    // The gateway cache already holds every guild channel and thread, so
+    // opening one needs no REST round-trip (which can also be blocked, e.g.
+    // by missing permissions).
+    let cached = {
+      let cache = &self.discord().cache;
+      cache.guilds().into_iter().find_map(|guild_id| {
+        let guild = cache.guild(guild_id)?;
+        guild.channels.get(&channel_id).or_else(|| guild.threads.iter().find(|t| t.id == channel_id)).cloned()
+      })
+    };
+
+    if let Some(channel) = cached {
+      return Some(Channel::Guild(channel));
+    }
+
     match channel_id.to_channel(self.discord()).await {
       Ok(channel) => Some(channel),
       Err(why) => {
         log::warn!("Discord: could not resolve channel {channel_id}: {why:?}");
+        self.notice(format!(
+          "couldn't open that channel — discord refused the request ({})",
+          short_error(&why)
+        ));
         None
       }
     }
@@ -502,7 +523,8 @@ impl DiscordClient {
 
     // The http client alone: a permission check against the cache would refuse DMs it does not hold.
     if let Err(why) = channel_id.send_message(self.discord().http.clone(), builder).await {
-      log::error!("Discord: could not send a message to {channel_id} (missing permissions?): {why:?}");
+      log::error!("Discord: could not send a message to {channel_id}: {why:?}");
+      self.notice(format!("message didn't send ({})", short_error(&why)));
       return false;
     }
 
@@ -612,9 +634,20 @@ impl DiscordClient {
       Ok(messages) => messages,
       Err(why) => {
         log::warn!("Discord: could not fetch messages in {channel_id}: {why:?}");
+
+        // Once per channel per session; paging retries would spam the banner.
+        if self.history_notices.insert(channel_id) {
+          self.notice(format!("couldn't load history in this channel ({})", short_error(&why)));
+        }
+
         Vec::new()
       }
     }
+  }
+
+  /// Show a non-fatal problem to the user (notice banner in the shell).
+  pub(crate) fn notice(&self, text: String) {
+    self.emit(ClientEvent::Notice(text));
   }
 
   pub async fn get_specific_message(&self, channel_id: ChannelId, message_id: MessageId) -> Option<Message> {
@@ -638,6 +671,16 @@ fn report<T>(channel_id: ChannelId, what: &str, result: serenity::Result<T>) {
 }
 
 /// Forwards raw gateway events to the client without another strong reference cycle.
+/// One-line human summary of a serenity error ("403 missing access", not a debug dump).
+fn short_error(error: &serenity::Error) -> String {
+  match error {
+    serenity::Error::Http(serenity::http::HttpError::UnsuccessfulRequest(response)) => {
+      format!("{} {}", response.status_code.as_u16(), response.error.message.to_lowercase())
+    }
+    other => other.to_string().to_lowercase(),
+  }
+}
+
 /// Display name of the account behind a reaction event, best effort.
 fn reactor_name(ctx: &Context, reaction: &serenity::all::Reaction) -> Option<String> {
   if let Some(member) = &reaction.member {
