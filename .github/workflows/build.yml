@@ -50,9 +50,10 @@ jobs:
       - name: Install Linux Dependencies
         run: |
           sudo apt-get update
+          # gpui needs xkbcommon/x11/vulkan; rodio (audio) needs ALSA.
+          # The old GTK/WebKit set belonged to the pre-rewrite webview stack.
           sudo apt-get install -y libxkbcommon-dev libxkbcommon-x11-dev libx11-dev libvulkan-dev vulkan-validationlayers \
-          libgtk-3-dev libgdk3.0-cil-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev \
-          libwebkit2gtk-4.1-dev
+          libasound2-dev
 
       - name: Build Release
         run: cargo build --release
