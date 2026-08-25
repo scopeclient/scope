@@ -371,24 +371,28 @@ pub fn hot_reactions(fire: u64, me: bool) -> Vec<Reaction> {
       count: fire,
       me,
       burst: false,
+      users: vec!["zach".into(), "luke".into(), "dfg".into(), "milky".into(), "sanae".into(), "rose".into()],
     },
     Reaction {
       emoji: unicode("👀"),
       count: 3,
       me: false,
       burst: false,
+      users: vec!["luke".into(), "dfg".into(), "rose".into()],
     },
     Reaction {
       emoji: scope_emoji(),
       count: 5,
       me: false,
       burst: false,
+      users: vec!["zach".into(), "milky".into(), "sanae".into()],
     },
     Reaction {
       emoji: unicode("🚀"),
       count: 1,
       me: false,
       burst: true,
+      users: Vec::new(),
     },
   ]
 }

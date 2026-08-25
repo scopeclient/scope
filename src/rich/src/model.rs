@@ -368,6 +368,9 @@ pub struct Reaction {
   /// The signed-in user reacted.
   pub me: bool,
   pub burst: bool,
+  /// Display names of some people who reacted (session-local for Discord;
+  /// shown in the pill's hover tooltip, up to five then "and n others").
+  pub users: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]

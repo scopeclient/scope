@@ -197,7 +197,13 @@ impl DemoMessage {
   }
 
   pub fn is_system(&self) -> bool {
-    matches!(self.rich.as_deref(), Some(RichMessage { kind: MessageKind::System(_), .. }))
+    matches!(
+      self.rich.as_deref(),
+      Some(RichMessage {
+        kind: MessageKind::System(_),
+        ..
+      })
+    )
   }
 
   pub fn is_edited(&self) -> bool {
@@ -225,9 +231,9 @@ impl DemoMessage {
 
   /// Add one reaction; `me` when the signed-in user is the one reacting.
   /// Returns whether anything changed.
-  pub fn react(&mut self, emoji: Emoji, me: bool) -> bool {
+  pub fn react(&mut self, emoji: Emoji, me: bool, user: Option<&str>) -> bool {
     let mut body = self.body();
-    let changed = add_reaction(&mut body.reactions, emoji, me);
+    let changed = add_reaction(&mut body.reactions, emoji, me, user);
     if changed {
       self.set_body(body);
     }
@@ -235,9 +241,9 @@ impl DemoMessage {
   }
 
   /// Take one reaction away; the inverse of [`Self::react`].
-  pub fn unreact(&mut self, emoji: &Emoji, me: bool) -> bool {
+  pub fn unreact(&mut self, emoji: &Emoji, me: bool, user: Option<&str>) -> bool {
     let mut body = self.body();
-    let changed = remove_reaction(&mut body.reactions, emoji, me);
+    let changed = remove_reaction(&mut body.reactions, emoji, me, user);
     if changed {
       self.set_body(body);
     }
@@ -261,12 +267,13 @@ impl DemoMessage {
   pub fn reply_ref(&self) -> ReplyRef {
     let body = self.body();
     let text = markdown::to_plain_text(&body.blocks);
-    let snippet = text
-      .lines()
-      .map(str::trim)
-      .find(|line| !line.is_empty())
-      .map(str::to_owned)
-      .unwrap_or_else(|| if body.is_text_only() { String::new() } else { "Click to see attachment".into() });
+    let snippet = text.lines().map(str::trim).find(|line| !line.is_empty()).map(str::to_owned).unwrap_or_else(|| {
+      if body.is_text_only() {
+        String::new()
+      } else {
+        "Click to see attachment".into()
+      }
+    });
 
     ReplyRef {
       message_id: Some(self.id.0),
@@ -280,28 +287,40 @@ impl DemoMessage {
 
 /// Reaction pill arithmetic, shared by the user's own toggles and the live feed.
 /// Adding a reaction the user already has is a no-op, like the real server.
-pub fn add_reaction(reactions: &mut Vec<Reaction>, emoji: Emoji, me: bool) -> bool {
+pub fn add_reaction(reactions: &mut Vec<Reaction>, emoji: Emoji, me: bool, user: Option<&str>) -> bool {
   match reactions.iter_mut().find(|r| r.emoji == emoji) {
     Some(pill) if me && pill.me => false,
     Some(pill) => {
       pill.count += 1;
       pill.me |= me;
+      remember_reactor(pill, user);
       true
     }
     None => {
-      reactions.push(Reaction {
+      let mut pill = Reaction {
         emoji,
         count: 1,
         me,
         burst: false,
-      });
+        users: Vec::new(),
+      };
+      remember_reactor(&mut pill, user);
+      reactions.push(pill);
       true
     }
   }
 }
 
 /// Removing a reaction the user never added is a no-op; pills disappear at zero.
-pub fn remove_reaction(reactions: &mut Vec<Reaction>, emoji: &Emoji, me: bool) -> bool {
+fn remember_reactor(pill: &mut Reaction, user: Option<&str>) {
+  if let Some(name) = user {
+    pill.users.retain(|existing| existing != name);
+    pill.users.insert(0, name.to_string());
+    pill.users.truncate(8);
+  }
+}
+
+pub fn remove_reaction(reactions: &mut Vec<Reaction>, emoji: &Emoji, me: bool, user: Option<&str>) -> bool {
   let Some(index) = reactions.iter().position(|r| r.emoji == *emoji) else {
     return false;
   };
@@ -312,6 +331,9 @@ pub fn remove_reaction(reactions: &mut Vec<Reaction>, emoji: &Emoji, me: bool) -
   pill.count = pill.count.saturating_sub(1);
   if me {
     pill.me = false;
+  }
+  if let Some(name) = user {
+    pill.users.retain(|existing| existing != name);
   }
   if pill.count == 0 {
     reactions.remove(index);
@@ -394,51 +416,52 @@ mod tests {
       count,
       me,
       burst: false,
+      users: Vec::new(),
     }
   }
 
   #[test]
   fn add_reaction_appends_a_new_pill() {
     let mut reactions = vec![];
-    assert!(add_reaction(&mut reactions, thumbs(), true));
+    assert!(add_reaction(&mut reactions, thumbs(), true, None));
     assert_eq!(reactions, vec![pill(thumbs(), 1, true)]);
 
-    assert!(add_reaction(&mut reactions, fire(), false));
+    assert!(add_reaction(&mut reactions, fire(), false, None));
     assert_eq!(reactions, vec![pill(thumbs(), 1, true), pill(fire(), 1, false)]);
   }
 
   #[test]
   fn add_reaction_bumps_existing_pill_and_marks_me() {
     let mut reactions = vec![pill(thumbs(), 3, false)];
-    assert!(add_reaction(&mut reactions, thumbs(), false));
+    assert!(add_reaction(&mut reactions, thumbs(), false, None));
     assert_eq!(reactions, vec![pill(thumbs(), 4, false)]);
 
-    assert!(add_reaction(&mut reactions, thumbs(), true));
+    assert!(add_reaction(&mut reactions, thumbs(), true, None));
     assert_eq!(reactions, vec![pill(thumbs(), 5, true)]);
   }
 
   #[test]
   fn add_reaction_twice_by_me_is_a_no_op() {
     let mut reactions = vec![pill(thumbs(), 1, true)];
-    assert!(!add_reaction(&mut reactions, thumbs(), true));
+    assert!(!add_reaction(&mut reactions, thumbs(), true, None));
     assert_eq!(reactions, vec![pill(thumbs(), 1, true)]);
   }
 
   #[test]
   fn remove_reaction_decrements_and_drops_empty_pills() {
     let mut reactions = vec![pill(thumbs(), 2, true), pill(fire(), 1, false)];
-    assert!(remove_reaction(&mut reactions, &thumbs(), true));
+    assert!(remove_reaction(&mut reactions, &thumbs(), true, None));
     assert_eq!(reactions, vec![pill(thumbs(), 1, false), pill(fire(), 1, false)]);
 
-    assert!(remove_reaction(&mut reactions, &fire(), false));
+    assert!(remove_reaction(&mut reactions, &fire(), false, None));
     assert_eq!(reactions, vec![pill(thumbs(), 1, false)]);
   }
 
   #[test]
   fn remove_reaction_ignores_missing_or_not_mine() {
     let mut reactions = vec![pill(thumbs(), 2, false)];
-    assert!(!remove_reaction(&mut reactions, &fire(), false));
-    assert!(!remove_reaction(&mut reactions, &thumbs(), true));
+    assert!(!remove_reaction(&mut reactions, &fire(), false, None));
+    assert!(!remove_reaction(&mut reactions, &thumbs(), true, None));
     assert_eq!(reactions, vec![pill(thumbs(), 2, false)]);
   }
 
@@ -447,11 +470,11 @@ mod tests {
     let mut message = DemoMessage::new(Id(10), Id(2), "hello", Utc::now());
     assert!(message.rich.is_none());
 
-    assert!(message.react(thumbs(), true));
+    assert!(message.react(thumbs(), true, None));
     assert_eq!(message.body().reactions, vec![pill(thumbs(), 1, true)]);
     assert_eq!(message.body().source, "hello", "reacting keeps the text");
 
-    assert!(message.unreact(&thumbs(), true));
+    assert!(message.unreact(&thumbs(), true, None));
     assert!(message.body().reactions.is_empty());
   }
 

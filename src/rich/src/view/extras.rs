@@ -12,6 +12,7 @@ use gpui::{
   AnyElement, App, ClickEvent, Context, Div, ElementId, FontWeight, Hsla, InteractiveElement, IntoElement, ObjectFit, ParentElement, Pixels,
   StatefulInteractiveElement, Styled, StyledImage, Svg, Window, div, img, prelude::FluentBuilder, px, relative, svg, white,
 };
+use gpui_component::tooltip::Tooltip;
 use scope_media::{
   MediaPlayer, MediaSource, PlaybackStatus, Track,
   element::{format_progress, progress_bar, seekable},
@@ -1056,6 +1057,30 @@ fn render_component(component: &Component, id: usize) -> Option<AnyElement> {
 
 // ---- reactions ----------------------------------------------------------------------------
 
+/// "zach, luke and 3 others reacted with 🔥" — names are best-effort, so fall
+/// back to the bare count when none are known.
+fn reaction_tooltip(reaction: &Reaction) -> String {
+  let label = reaction.emoji.label();
+  let shown: Vec<&str> = reaction.users.iter().take(5).map(String::as_str).collect();
+  let extra = (reaction.count as usize).saturating_sub(shown.len());
+
+  match (shown.is_empty(), extra) {
+    (true, 1) => format!("1 person reacted with {label}"),
+    (true, n) => format!("{n} people reacted with {label}"),
+    (false, 0) => format!("{} reacted with {label}", join_names(&shown)),
+    (false, 1) => format!("{} and 1 other reacted with {label}", shown.join(", ")),
+    (false, n) => format!("{} and {n} others reacted with {label}", shown.join(", ")),
+  }
+}
+
+fn join_names(names: &[&str]) -> String {
+  match names {
+    [] => String::new(),
+    [a] => (*a).to_string(),
+    [head @ .., last] => format!("{} and {last}", head.join(", ")),
+  }
+}
+
 fn render_reactions(reactions: &[Reaction], on_reaction: Option<crate::view::ReactionHandler>) -> AnyElement {
   div()
     .flex()
@@ -1068,9 +1093,11 @@ fn render_reactions(reactions: &[Reaction], on_reaction: Option<crate::view::Rea
       let emoji = reaction.emoji.clone();
       let handler = on_reaction.clone();
       let me = reaction.me;
+      let who = reaction_tooltip(reaction);
 
       div()
         .id(("reaction", index))
+        .tooltip(move |window, cx| Tooltip::new(who.clone()).build(window, cx))
         .h(px(22.))
         .pl(px(6.))
         .pr(px(7.))

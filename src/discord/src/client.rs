@@ -131,6 +131,9 @@ pub struct DiscordClient {
   own_presence: Mutex<Option<OwnPresence>>,
   /// Messages with a re-fetch already scheduled (see [`REACTION_REFRESH_COALESCE`]).
   pending_refreshes: DashSet<(ChannelId, MessageId)>,
+  /// Who reacted, per (message, emoji label) — session-local, fed by reaction
+  /// events (history fetched before launch shows counts only).
+  reaction_names: DashMap<(MessageId, String), Vec<String>>,
 }
 
 impl DiscordClient {
@@ -323,6 +326,11 @@ impl DiscordClient {
       }
       Err(why) => log::warn!("Discord: could not fetch private channels: {why:?}"),
     }
+  }
+
+  /// Known reactor display names for a pill, newest first (session-local).
+  pub(crate) fn reaction_names(&self, message: MessageId, label: &str) -> Vec<String> {
+    self.reaction_names.get(&(message, label.to_string())).map(|names| names.clone()).unwrap_or_default()
   }
 
   /// Clear unread state for a channel and tell the UI, if anything changed.
@@ -599,6 +607,16 @@ fn report<T>(channel_id: ChannelId, what: &str, result: serenity::Result<T>) {
 }
 
 /// Forwards raw gateway events to the client without another strong reference cycle.
+/// Display name of the account behind a reaction event, best effort.
+fn reactor_name(ctx: &Context, reaction: &serenity::all::Reaction) -> Option<String> {
+  if let Some(member) = &reaction.member {
+    return Some(member.display_name().to_owned());
+  }
+
+  let user_id = reaction.user_id?;
+  ctx.cache.user(user_id).map(|user| user.display_name().to_owned())
+}
+
 struct RawEvents(Weak<DiscordClient>);
 
 #[async_trait]
@@ -791,19 +809,36 @@ impl EventHandler for DiscordClient {
     }
   }
 
-  async fn reaction_add(&self, _: Context, reaction: Reaction) {
+  async fn reaction_add(&self, ctx: Context, reaction: Reaction) {
+    if let Some(name) = reactor_name(&ctx, &reaction) {
+      let key = (reaction.message_id, crate::message::rich::emoji(&reaction.emoji).label());
+      let mut names = self.reaction_names.entry(key).or_default();
+      names.retain(|existing| *existing != name);
+      names.insert(0, name);
+      names.truncate(8);
+    }
+
     self.refresh_message_soon(reaction.channel_id, reaction.message_id).await;
   }
 
-  async fn reaction_remove(&self, _: Context, reaction: Reaction) {
+  async fn reaction_remove(&self, ctx: Context, reaction: Reaction) {
+    if let Some(name) = reactor_name(&ctx, &reaction) {
+      let key = (reaction.message_id, crate::message::rich::emoji(&reaction.emoji).label());
+      if let Some(mut names) = self.reaction_names.get_mut(&key) {
+        names.retain(|existing| *existing != name);
+      }
+    }
+
     self.refresh_message_soon(reaction.channel_id, reaction.message_id).await;
   }
 
   async fn reaction_remove_all(&self, _: Context, channel_id: ChannelId, message_id: MessageId) {
+    self.reaction_names.retain(|(message, _), _| *message != message_id);
     self.refresh_message_soon(channel_id, message_id).await;
   }
 
   async fn reaction_remove_emoji(&self, _: Context, reaction: Reaction) {
+    self.reaction_names.remove(&(reaction.message_id, crate::message::rich::emoji(&reaction.emoji).label()));
     self.refresh_message_soon(reaction.channel_id, reaction.message_id).await;
   }
 }

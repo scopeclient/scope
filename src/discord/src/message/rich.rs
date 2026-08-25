@@ -40,7 +40,15 @@ pub fn from_serenity(message: &Message, _member: Option<&Member>, channel: &Chan
     attachments: message.attachments.iter().map(|a| attachment(a, is_voice)).collect(),
     embeds: message.embeds.iter().map(|e| embed(e, &resolver)).collect(),
     stickers: message.sticker_items.iter().map(sticker).collect(),
-    reactions: message.reactions.iter().map(reaction).collect(),
+    reactions: message
+      .reactions
+      .iter()
+      .map(|r| {
+        let mut pill = reaction(r);
+        pill.users = client.reaction_names(message.id, &pill.emoji.label());
+        pill
+      })
+      .collect(),
     poll: message.poll.as_deref().map(|p| poll(p, cache, guild_id)),
     reply,
     components: message.components.iter().map(component_row).collect(),
@@ -362,10 +370,11 @@ fn reaction(r: &MessageReaction) -> Reaction {
     count: r.count,
     me: r.me,
     burst: r.me_burst,
+    users: Vec::new(),
   }
 }
 
-fn emoji(reaction: &ReactionType) -> Emoji {
+pub(crate) fn emoji(reaction: &ReactionType) -> Emoji {
   match reaction {
     ReactionType::Unicode(s) => Emoji::Unicode(s.clone()),
     ReactionType::Custom { animated, id, name } => Emoji::Custom {

@@ -102,11 +102,13 @@ impl DemoChannel {
 
   /// `me` when the signed-in user is the one reacting.
   pub fn react(&self, id: Id, emoji: Emoji, me: bool) -> bool {
-    self.update_after(id, REACTION_LATENCY, |m| m.react(emoji, me))
+    let name = if me { Some(crate::data::current_user().display_name) } else { None };
+    self.update_after(id, REACTION_LATENCY, |m| m.react(emoji, me, name.as_deref()))
   }
 
   pub fn unreact(&self, id: Id, emoji: &Emoji, me: bool) -> bool {
-    self.update_after(id, REACTION_LATENCY, |m| m.unreact(emoji, me))
+    let name = if me { Some(crate::data::current_user().display_name) } else { None };
+    self.update_after(id, REACTION_LATENCY, |m| m.unreact(emoji, me, name.as_deref()))
   }
 
   /// Apply `change` to one message and, after `latency`, tell listeners.
@@ -150,11 +152,7 @@ pub fn delete_from(history: &mut Vec<DemoMessage>, id: Id) -> Option<Vec<DemoMes
   let index = history.iter().position(|m| m.id == id)?;
   history.remove(index);
 
-  let orphans = history
-    .iter_mut()
-    .filter(|m| m.reply_target() == Some(id))
-    .filter_map(|m| m.orphan_reply().then(|| m.clone()))
-    .collect();
+  let orphans = history.iter_mut().filter(|m| m.reply_target() == Some(id)).filter_map(|m| m.orphan_reply().then(|| m.clone())).collect();
   Some(orphans)
 }
 
@@ -182,9 +180,8 @@ impl Channel for DemoChannel {
   }
 
   fn send_reply(&self, content: String, nonce: String, reply_to: Self::Identifier) -> Self::Message {
-    let reply = self
-      .with_history(|history| history.iter().find(|m| m.id == reply_to).map(DemoMessage::reply_ref))
-      .unwrap_or_else(|| deleted_reply(reply_to));
+    let reply =
+      self.with_history(|history| history.iter().find(|m| m.id == reply_to).map(DemoMessage::reply_ref)).unwrap_or_else(|| deleted_reply(reply_to));
     self.send(DemoMessage::pending_reply(content, nonce, reply))
   }
 
@@ -301,7 +298,10 @@ mod tests {
     assert_eq!(orphans.len(), 1);
     assert_eq!(orphans[0].id, Id(2));
     assert!(orphans[0].body().reply.as_ref().is_some_and(|r| r.deleted));
-    assert!(history[0].body().reply.as_ref().is_some_and(|r| r.deleted), "history holds the orphaned copy");
+    assert!(
+      history[0].body().reply.as_ref().is_some_and(|r| r.deleted),
+      "history holds the orphaned copy"
+    );
   }
 
   #[test]
