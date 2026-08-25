@@ -19,9 +19,7 @@ The Discord client for power users.
 
 </div>
 
-###### Scope is in its earliest stages of development. This README will be fleshed out as the project progresses.
-
-## Building the Project
+## Building Scope
 
 ### Prerequisites
 
