@@ -6,15 +6,15 @@
 use std::f32::consts::PI;
 
 use gpui::{
-  div, img, prelude::*, px, radians, AnyElement, Context, Div, Entity, FontWeight, Hsla, IntoElement, ObjectFit, ParentElement, Render, Stateful,
-  Styled, Window,
+  AnyElement, Context, Div, Entity, FontWeight, Hsla, IntoElement, ObjectFit, ParentElement, Render, Stateful, Styled, Window, div, img, prelude::*,
+  px, radians,
 };
-use gpui_component::{h_flex, v_flex, Icon};
+use gpui_component::{Icon, h_flex, v_flex};
 use scope_chat::nav::{GuildInfo, Presence, UserInfo};
 
 use crate::{
   icons::ScopeIcon,
-  shell::{tabs::tooltip, MAIN_NAV_WIDTH},
+  shell::{MAIN_NAV_WIDTH, tabs::tooltip},
   state::AppState,
   theme::tokens,
 };

@@ -1,5 +1,6 @@
 pub mod actions;
 pub mod app;
+pub mod auth;
 pub mod backend;
 pub mod channel;
 pub mod icons;

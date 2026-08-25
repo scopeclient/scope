@@ -9,7 +9,10 @@ use scope_rich::Emoji;
 #[derive(Clone)]
 pub enum MessageAction<M> {
   /// Toggle a reaction (add if we haven't reacted, remove if we have).
-  React { message: M, emoji: Emoji },
+  React {
+    message: M,
+    emoji: Emoji,
+  },
   Reply(M),
   Edit(M),
   Delete(M),

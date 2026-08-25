@@ -25,14 +25,17 @@ impl Scope {
     if std::env::var("SCOPE_DEMO").is_ok_and(|v| v == "1") {
       state.update(cx, |state, cx| state.connect_demo(window, cx));
     } else if let Ok(token) = dotenvy::var("DISCORD_BOT_TOKEN") {
-      state.update(cx, |state, cx| state.connect(token, TokenKind::Bot, cx));
+      state.update(cx, |state, cx| state.connect(token, TokenKind::Bot, false, cx));
     } else if let Ok(token) = dotenvy::var("DISCORD_TOKEN") {
       // `DISCORD_TOKEN_KIND=user` marks a user-account token; bots are the default.
       let kind = match dotenvy::var("DISCORD_TOKEN_KIND").map(|v| v.to_ascii_lowercase()) {
         Ok(v) if v == "user" => TokenKind::User,
         _ => TokenKind::Bot,
       };
-      state.update(cx, |state, cx| state.connect(token, kind, cx));
+      state.update(cx, |state, cx| state.connect(token, kind, false, cx));
+    } else if let Some((token, kind)) = crate::auth::load() {
+      // A token remembered from a previous login skips the login screen.
+      state.update(cx, |state, cx| state.connect(token, kind, true, cx));
     }
 
     Scope { state, login, shell: None }

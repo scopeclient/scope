@@ -114,7 +114,12 @@ fn avatar_frame(fill: Hsla) -> gpui::Div {
 
 /// One author header followed by every message body in the group, each body
 /// on its own 21px line(s).
-pub fn message_group<M: Message>(group: MessageGroup<M>, _actions: super::actions::MessageActions<M>, window: &mut Window, cx: &mut App) -> impl IntoElement {
+pub fn message_group<M: Message>(
+  group: MessageGroup<M>,
+  _actions: super::actions::MessageActions<M>,
+  window: &mut Window,
+  cx: &mut App,
+) -> impl IntoElement {
   let author = group.get_author();
   let timestamp = group.first().get_timestamp().map(format_timestamp);
   let bodies: Vec<_> = group.messages().iter().map(|m| m.get_content(window, cx)).collect();

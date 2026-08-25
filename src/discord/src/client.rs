@@ -138,13 +138,31 @@ impl DiscordClient {
   ///
   /// Fails if the client cannot be built or the gateway stops before `READY`
   /// (typically an invalid token).
-  pub async fn new(token: String, kind: TokenKind, intents: Intents) -> Result<Arc<DiscordClient>, ConnectError> {
-    // The fork passes tokens through verbatim, so the `Bot ` prefix is on us.
+  /// The fork passes tokens through verbatim, so the `Bot ` prefix is on us.
+  fn full_token(token: &str, kind: TokenKind) -> String {
     let raw = token.trim().trim_start_matches("Bot ").to_string();
-    let token = match kind {
+    match kind {
       TokenKind::Bot => format!("Bot {raw}"),
       TokenKind::User => raw,
-    };
+    }
+  }
+
+  /// Check a token against `users/@me` without opening a gateway connection.
+  /// Returns the account's display name.
+  pub async fn validate_token(token: &str, kind: TokenKind) -> Result<String, ConnectError> {
+    let http = Http::new(&Self::full_token(token, kind));
+
+    match http.get_current_user().await {
+      Ok(user) => Ok(user.display_name().to_owned()),
+      Err(serenity::Error::Http(serenity::http::HttpError::UnsuccessfulRequest(response))) if response.status_code == 401 => {
+        Err(ConnectError::InvalidToken)
+      }
+      Err(error) => Err(ConnectError::Gateway(error.to_string())),
+    }
+  }
+
+  pub async fn new(token: String, kind: TokenKind, intents: Intents) -> Result<Arc<DiscordClient>, ConnectError> {
+    let token = Self::full_token(&token, kind);
 
     let intents = match intents {
       Intents::All => GatewayIntents::all(),
@@ -201,7 +219,9 @@ impl DiscordClient {
         let error = client.connect_error.borrow_mut().take();
         Err(error.unwrap_or_else(|| ConnectError::Gateway("the connection closed before it became ready".into())))
       }
-      Err(_) => Err(ConnectError::Gateway(format!("Discord did not become ready within {CONNECT_TIMEOUT:?}. Check the token and the bot's intents."))),
+      Err(_) => Err(ConnectError::Gateway(format!(
+        "Discord did not become ready within {CONNECT_TIMEOUT:?}. Check the token and the bot's intents."
+      ))),
     }
   }
 

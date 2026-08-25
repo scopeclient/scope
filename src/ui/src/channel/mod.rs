@@ -87,13 +87,15 @@ impl<C: Channel + 'static> ChannelView<C> {
     install_composer_keymap(cx);
 
     // Row-level actions; TODO(chat-actions): wire to the channel + reply/edit state.
-    let actions: MessageActions<C::Message> = Rc::new(move |action: MessageAction<C::Message>, _window: &mut Window, _cx: &mut App| match action {
-      MessageAction::React { .. } => log::info!("react"),
-      MessageAction::Reply(_) => log::info!("reply"),
-      MessageAction::Edit(_) => log::info!("edit"),
-      MessageAction::Delete(_) => log::info!("delete"),
-      MessageAction::CopyText(_) => log::info!("copy"),
-    });
+    let actions: MessageActions<C::Message> = Rc::new(
+      move |action: MessageAction<C::Message>, _window: &mut Window, _cx: &mut App| match action {
+        MessageAction::React { .. } => log::info!("react"),
+        MessageAction::Reply(_) => log::info!("reply"),
+        MessageAction::Edit(_) => log::info!("edit"),
+        MessageAction::Delete(_) => log::info!("delete"),
+        MessageAction::CopyText(_) => log::info!("copy"),
+      },
+    );
 
     let list_view = cx.new(|cx| MessageListComponent::create(cx, channel.clone(), px(30.), actions));
 

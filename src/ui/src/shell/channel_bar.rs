@@ -3,16 +3,16 @@
 use std::f32::consts::{FRAC_PI_2, PI};
 
 use gpui::{
-  div, prelude::*, px, radians, Context, Entity, FontWeight, Hsla, InteractiveElement, IntoElement, ParentElement, Pixels, Render,
-  StatefulInteractiveElement, Styled, Window,
+  Context, Entity, FontWeight, Hsla, InteractiveElement, IntoElement, ParentElement, Pixels, Render, StatefulInteractiveElement, Styled, Window, div,
+  prelude::*, px, radians,
 };
-use gpui_component::{h_flex, Icon};
+use gpui_component::{Icon, h_flex};
 
 use crate::{
   icons::ScopeIcon,
   shell::{
-    tabs::{server_tile, tooltip},
     CHANNEL_BAR_HEIGHT,
+    tabs::{server_tile, tooltip},
   },
   state::AppState,
   theme::tokens,

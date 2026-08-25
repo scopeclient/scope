@@ -7,10 +7,10 @@ use std::{
 };
 
 use gpui::{
-  div, img, prelude::*, px, radians, App, ClickEvent, Context, Entity, FontWeight, Hsla, IntoElement, ObjectFit, ParentElement, Render, Styled,
-  Window,
+  App, ClickEvent, Context, Entity, FontWeight, Hsla, IntoElement, ObjectFit, ParentElement, Render, Styled, Window, div, img, prelude::*, px,
+  radians,
 };
-use gpui_component::{h_flex, v_flex, Icon};
+use gpui_component::{Icon, h_flex, v_flex};
 use scope_chat::nav::{MemberInfo, Presence};
 
 use crate::{icons::ScopeIcon, shell::MEMBER_LIST_WIDTH, state::AppState, theme::tokens};

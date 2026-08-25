@@ -5,10 +5,10 @@
 use std::f32::consts::PI;
 
 use gpui::{
-  div, img, prelude::*, px, radians, AnyView, App, Context, Div, Entity, FontWeight, Hsla, InteractiveElement, IntoElement, MouseButton, ObjectFit,
-  ParentElement, Pixels, Render, StatefulInteractiveElement, Styled, StyledImage, Window, WindowControlArea,
+  AnyView, App, Context, Div, Entity, FontWeight, Hsla, InteractiveElement, IntoElement, MouseButton, ObjectFit, ParentElement, Pixels, Render,
+  StatefulInteractiveElement, Styled, StyledImage, Window, WindowControlArea, div, img, prelude::*, px, radians,
 };
-use gpui_component::{h_flex, tooltip::Tooltip, Icon, InteractiveElementExt as _};
+use gpui_component::{Icon, InteractiveElementExt as _, h_flex, tooltip::Tooltip};
 use scope_chat::nav::Id;
 
 use crate::{icons::ScopeIcon, shell::TABS_HEIGHT, state::AppState, theme::tokens};

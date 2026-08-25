@@ -10,19 +10,19 @@ use std::{
 };
 
 use gpui::{
-  div, img, linear_color_stop, linear_gradient, prelude::*, px, radians, Context, Div, Entity, Focusable as _, FontWeight, Hsla, IntoElement,
-  ObjectFit, ParentElement, Render, SharedString, Styled, StyledImage, Window,
+  Context, Div, Entity, Focusable as _, FontWeight, Hsla, IntoElement, ObjectFit, ParentElement, Render, SharedString, Styled, StyledImage, Window,
+  div, img, linear_color_stop, linear_gradient, prelude::*, px, radians,
 };
 use gpui_component::{
-  h_flex,
+  Icon, h_flex,
   input::{Input, InputEvent, InputState},
-  v_flex, Icon,
+  v_flex,
 };
 use scope_chat::nav::{ChannelInfo, ChannelKind, GuildInfo, Id};
 
 use crate::{
   icons::ScopeIcon,
-  shell::{tabs::tooltip, CHANNEL_NAV_WIDTH},
+  shell::{CHANNEL_NAV_WIDTH, tabs::tooltip},
   state::AppState,
   theme::tokens,
 };

@@ -58,6 +58,8 @@ pub struct AppState {
 
   /// Non-fatal warning to surface to the user (e.g. intents disabled).
   pub notice: Option<String>,
+  /// Display name from token validation, shown while connecting.
+  pub connecting_as: Option<String>,
 
   /// Chat views, created lazily per channel and kept alive across tab switches.
   pub channel_views: HashMap<Id, AnyView>,
@@ -130,29 +132,61 @@ impl AppState {
   ///
   /// Bots whose privileged intents are disabled are retried without them, so
   /// they still connect (with a thinner member list / no presence).
-  pub fn connect(&mut self, token: String, kind: TokenKind, cx: &mut Context<Self>) {
+  /// `persist` manages the stored login: save the token once the gateway is
+  /// ready, forget it if Discord rejects it. Env-provided tokens pass `false`.
+  pub fn connect(&mut self, token: String, kind: TokenKind, persist: bool, cx: &mut Context<Self>) {
     if matches!(self.connection, Connection::Connecting) {
       return;
     }
 
     self.connection = Connection::Connecting;
     self.notice = None;
+    self.connecting_as = None;
     cx.notify();
 
     cx.spawn(async move |this, cx| {
       let mut notice = None;
 
+      // Cheap users/@me check first: catches bad tokens without a gateway
+      // round-trip and gives us a name for the "connecting as …" state.
+      match DiscordClient::validate_token(&token, kind).await {
+        Ok(name) => {
+          this
+            .update(cx, |this, cx| {
+              this.connecting_as = Some(name);
+              cx.notify();
+            })
+            .ok();
+        }
+        Err(error) => {
+          if persist && error == ConnectError::InvalidToken {
+            crate::auth::forget();
+          }
+          this
+            .update(cx, |this, cx| {
+              this.connection = Connection::Failed(error.to_string());
+              cx.notify();
+            })
+            .ok();
+          return;
+        }
+      }
+
       let result = match DiscordClient::new(token.clone(), kind, Intents::All).await {
         Err(ConnectError::DisallowedIntents) if kind == TokenKind::Bot => {
           log::warn!("privileged intents are disabled for this bot; retrying without them");
           notice = Some(ConnectError::DisallowedIntents.to_string());
-          DiscordClient::new(token, kind, Intents::NonPrivileged).await
+          DiscordClient::new(token.clone(), kind, Intents::NonPrivileged).await
         }
         other => other,
       };
 
       match result {
         Ok(client) => {
+          if persist {
+            crate::auth::save(&token, kind);
+          }
+
           this
             .update(cx, |this, cx| {
               this.notice = notice;
@@ -161,6 +195,10 @@ impl AppState {
             .ok();
         }
         Err(error) => {
+          if persist && error == ConnectError::InvalidToken {
+            crate::auth::forget();
+          }
+
           this
             .update(cx, |this, cx| {
               this.connection = Connection::Failed(error.to_string());

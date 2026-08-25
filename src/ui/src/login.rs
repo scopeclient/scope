@@ -5,13 +5,13 @@
 //! "Sign In" button. Coordinates below are the Figma frame coordinates.
 
 use gpui::{
-  div, linear_color_stop, linear_gradient, point, prelude::*, px, App, BoxShadow, ClickEvent, Context, Entity, Focusable as _, FontWeight, Hsla,
-  IntoElement, ParentElement, Render, Styled, Window,
+  App, BoxShadow, ClickEvent, Context, Entity, Focusable as _, FontWeight, Hsla, IntoElement, ParentElement, Render, SharedString, Styled, Window,
+  div, linear_color_stop, linear_gradient, point, prelude::*, px,
 };
 use gpui_component::{
-  h_flex,
+  ActiveTheme as _, Icon, h_flex,
   input::{Input, InputEvent, InputState},
-  v_flex, ActiveTheme as _, Icon,
+  v_flex,
 };
 
 use scope_backend_discord::client::TokenKind;
@@ -74,7 +74,7 @@ impl Login {
     }
 
     let kind = self.kind;
-    self.state.update(cx, |state, cx| state.connect(token, kind, cx));
+    self.state.update(cx, |state, cx| state.connect(token, kind, true, cx));
   }
 }
 
@@ -107,7 +107,14 @@ impl Render for Login {
       .child(logo_row())
       .child(heading())
       .child(self.form(focused, error, cx))
-      .child(footer(connecting, cx.listener(|this, _, _, cx| this.submit(cx))));
+      .child(footer(
+        connecting,
+        match self.state.read(cx).connecting_as.as_deref() {
+          Some(name) => format!("Connecting as {name}…").into(),
+          None => SharedString::new_static("Connecting…"),
+        },
+        cx.listener(|this, _, _, cx| this.submit(cx)),
+      ));
 
     div().size_full().flex().items_center().justify_center().bg(cx.theme().background).child(card)
   }
@@ -284,7 +291,7 @@ fn heading() -> impl IntoElement {
 }
 
 /// "Not a member? Get Scope" left, "Sign In ->" button right, at (47,424) 363x36.
-fn footer(connecting: bool, on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static) -> impl IntoElement {
+fn footer(connecting: bool, connecting_label: SharedString, on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static) -> impl IntoElement {
   h_flex()
     .absolute()
     .left(px(CONTENT_X))
@@ -310,11 +317,15 @@ fn footer(connecting: bool, on_click: impl Fn(&ClickEvent, &mut Window, &mut App
             .child("Get Scope"),
         ),
     )
-    .child(sign_in_button(connecting, on_click))
+    .child(sign_in_button(connecting, connecting_label, on_click))
 }
 
 /// 89x36 brand button: `BG_FILL_BRAND` fill, 1px `BORDER_BRAND` rim, arrow glyph.
-fn sign_in_button(connecting: bool, on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static) -> impl IntoElement {
+fn sign_in_button(
+  connecting: bool,
+  connecting_label: SharedString,
+  on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
+) -> impl IntoElement {
   h_flex()
     .id("sign-in")
     .h(px(36.))
@@ -329,7 +340,7 @@ fn sign_in_button(connecting: bool, on_click: impl Fn(&ClickEvent, &mut Window, 
     .text_size(tokens::TYPE_M)
     .font_weight(FontWeight::BOLD)
     .text_color(WHITE)
-    .when(connecting, |this| this.opacity(0.7).child("Connecting…"))
+    .when(connecting, |this| this.opacity(0.7).child(connecting_label))
     .when(!connecting, |this| {
       this
         .cursor_pointer()
