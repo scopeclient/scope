@@ -11,7 +11,7 @@ pub mod text;
 
 use std::{collections::HashSet, rc::Rc, sync::Arc};
 
-use gpui::{App, ClipboardItem, Context, FocusHandle, Focusable, IntoElement, MouseButton, ParentElement, Styled, Window, div, prelude::*, px};
+use gpui::{App, ClipboardItem, Context, FocusHandle, Focusable, IntoElement, ParentElement, Styled, Window, div, prelude::*, px};
 use scope_theme as tokens;
 
 use crate::model::{Emoji, MessageKind, RichMessage};
@@ -116,12 +116,10 @@ impl Render for RichContentView {
       .key_context(selection::MESSAGE_CONTEXT)
       .on_action(cx.listener(|this, _: &selection::CopyMessage, _window, cx| this.copy(cx)))
       .on_action(cx.listener(|this, _: &selection::SelectMessage, window, cx| this.select(window, cx)))
-      .on_mouse_down(MouseButton::Left, cx.listener(|this, _, window, cx| this.select(window, cx)))
+      
       .w_full()
       .rounded(tokens::RADIUS_100)
-      // Neutral tint: just enough to show what Cmd+C will copy, without
-      // reading as a mention highlight.
-      .when(selected, |this| this.bg(tokens::BG_FILL.opacity(0.25)))
+
       .child(body)
   }
 }
