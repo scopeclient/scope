@@ -253,6 +253,9 @@ impl AppState {
             this.update(cx, |this, cx| this.refresh_from_backend(cx))
           }
           Ok(ClientEvent::ChannelsUpdated(guild)) => this.update(cx, |this, cx| this.refresh_guild_channels(guild, cx)),
+          // Presence/member chatter arrives constantly from every guild on a
+          // real account; only the selected guild is on screen, so only it is
+          // worth refreshing (selecting a guild refreshes it on entry).
           Ok(ClientEvent::MembersUpdated(guild) | ClientEvent::PresenceUpdated(guild)) => {
             this.update(cx, |this, cx| this.refresh_guild_members(guild, cx))
           }
@@ -278,13 +281,15 @@ impl AppState {
     self.guilds = backend.guilds();
     self.dms = backend.dm_channels();
 
-    for guild in &self.guilds {
-      self.channels.insert(guild.id, backend.guild_channels(guild.id));
-      self.members.insert(guild.id, backend.guild_members(guild.id));
-    }
-
     if self.selected_guild.is_none_or(|g| self.guild(g).is_none()) {
       self.selected_guild = self.guilds.first().map(|g| g.id);
+    }
+
+    // Only the guild on screen needs its channel/member details; the rest are
+    // fetched when selected. Keeps a GuildsUpdated burst from cloning the world.
+    if let Some(guild) = self.selected_guild {
+      self.channels.insert(guild, backend.guild_channels(guild));
+      self.members.insert(guild, backend.guild_members(guild));
     }
 
     cx.notify();
@@ -292,20 +297,42 @@ impl AppState {
 
   pub fn refresh_guild_channels(&mut self, guild: Id, cx: &mut Context<Self>) {
     let Some(backend) = self.backend().cloned() else { return };
-    self.channels.insert(guild, backend.guild_channels(guild));
-    cx.notify();
+    let fresh = backend.guild_channels(guild);
+
+    if self.channels.get(&guild) != Some(&fresh) {
+      self.channels.insert(guild, fresh);
+      cx.notify();
+    }
   }
 
+  /// Ignores guilds that are not on screen and skips the re-render when the
+  /// member list comes back unchanged.
   pub fn refresh_guild_members(&mut self, guild: Id, cx: &mut Context<Self>) {
+    if self.selected_guild != Some(guild) {
+      return;
+    }
+
     let Some(backend) = self.backend().cloned() else { return };
-    self.members.insert(guild, backend.guild_members(guild));
-    cx.notify();
+    let fresh = backend.guild_members(guild);
+
+    if self.members.get(&guild) != Some(&fresh) {
+      self.members.insert(guild, fresh);
+      cx.notify();
+    }
   }
 
   // ---- navigation ---------------------------------------------------------
 
   pub fn select_guild(&mut self, guild: Id, cx: &mut Context<Self>) {
     self.selected_guild = Some(guild);
+
+    // Entering a guild pulls its channels and members fresh; while it stays
+    // selected, events keep it up to date.
+    if let Some(backend) = self.backend().cloned() {
+      self.channels.insert(guild, backend.guild_channels(guild));
+      self.members.insert(guild, backend.guild_members(guild));
+    }
+
     cx.notify();
   }
 
