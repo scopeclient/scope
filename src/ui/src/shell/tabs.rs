@@ -173,7 +173,7 @@ impl Render for TabsBar {
               .min_w_0()
               .truncate()
               .text_size(tokens::TYPE_M)
-              .font_weight(FontWeight::BOLD)
+              .font_weight(FontWeight::SEMIBOLD)
               .text_color(tokens::TEXT)
               .child(tab.title.clone()),
           )

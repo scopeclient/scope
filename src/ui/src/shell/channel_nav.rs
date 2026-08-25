@@ -152,7 +152,7 @@ impl ChannelNav {
       .cursor_pointer()
       .text_size(tokens::TYPE_S)
       .line_height(px(18.))
-      .font_weight(FontWeight::BOLD)
+      .font_weight(FontWeight::SEMIBOLD)
       .text_color(tokens::TEXT_TERTIARY)
       .hover(|this| this.text_color(tokens::TEXT_SECONDARY))
       .active(|this| this.opacity(0.85))
@@ -212,7 +212,7 @@ impl ChannelNav {
           .text_ellipsis()
           .text_size(tokens::TYPE_M)
           .line_height(px(20.))
-          .font_weight(FontWeight::BOLD)
+          .font_weight(FontWeight::SEMIBOLD)
           .text_color(label_color)
           .child(channel.name.clone()),
       )
@@ -222,7 +222,7 @@ impl ChannelNav {
             .flex_none()
             .text_size(tokens::TYPE_S)
             .line_height(px(18.))
-            .font_weight(FontWeight::BOLD)
+            .font_weight(FontWeight::SEMIBOLD)
             .text_color(tokens::TEXT_TERTIARY)
             .child(channel.unread.to_string()),
         )

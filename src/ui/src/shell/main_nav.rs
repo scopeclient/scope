@@ -162,7 +162,7 @@ fn avatar(user: &UserInfo) -> Div {
 
   match &user.avatar_url {
     Some(url) => ring.child(img(url.clone()).size(px(33.)).rounded_full().object_fit(ObjectFit::Cover)),
-    None => ring.child(text(tokens::TYPE_M, FontWeight::BOLD, tokens::TEXT_SECONDARY).child(initial(&user.display_name))),
+    None => ring.child(text(tokens::TYPE_M, FontWeight::SEMIBOLD, tokens::TEXT_SECONDARY).child(initial(&user.display_name))),
   }
 }
 
@@ -178,7 +178,7 @@ fn header(user: &UserInfo) -> impl IntoElement {
           .h(px(21.))
           .items_center()
           .gap(px(8.))
-          .child(text(tokens::TYPE_M, FontWeight::BOLD, tokens::TEXT).child(user.tag.clone()))
+          .child(text(tokens::TYPE_M, FontWeight::SEMIBOLD, tokens::TEXT).child(user.tag.clone()))
           .child(icon(ICON_CHEVRONS).w(px(7.)).h(px(10.)).text_color(tokens::ICON_SECONDARY)),
       )
       .child(
@@ -288,7 +288,7 @@ fn icon_tile(url: Option<&str>, name: &str) -> AnyElement {
       .flex()
       .items_center()
       .justify_center()
-      .child(text(tokens::TYPE_XS, FontWeight::BOLD, tokens::TEXT_SECONDARY).child(initial(name)))
+      .child(text(tokens::TYPE_XS, FontWeight::SEMIBOLD, tokens::TEXT_SECONDARY).child(initial(name)))
       .into_any_element(),
   }
 }
@@ -297,7 +297,7 @@ fn icon_tile(url: Option<&str>, name: &str) -> AnyElement {
 /// badge right-aligned to x=243.
 fn channel_row(id: impl Into<gpui::ElementId>, tile: AnyElement, label: String, badge: u32, selected: bool) -> Stateful<Div> {
   let (label_weight, label_color, badge_color) = if selected {
-    (FontWeight::BOLD, tokens::TEXT, tokens::ICON_TERTIARY)
+    (FontWeight::SEMIBOLD, tokens::TEXT, tokens::ICON_TERTIARY)
   } else {
     (FontWeight::MEDIUM, tokens::TEXT_SECONDARY, tokens::TEXT_TERTIARY)
   };
@@ -357,8 +357,8 @@ fn voice_card(guild: Option<&GuildInfo>) -> impl IntoElement {
     .border_color(CARD_BORDER)
     .child(div().ml(px(11.)).flex_shrink_0().child(tile))
     .child(icon(ICON_VOLUME).size(px(16.)).ml(px(4.)).text_color(tokens::ICON_SECONDARY))
-    .child(ellipsis(text(tokens::TYPE_M, FontWeight::BOLD, tokens::TEXT).ml(px(4.)).w(px(114.))).child("important-friends"))
-    .child(icon(ICON_SIGNAL).size(px(16.)).ml(px(12.)).text_color(tokens::ICON_SUCCESS))
+    .child(ellipsis(text(tokens::TYPE_M, FontWeight::SEMIBOLD, tokens::TEXT).ml(px(4.)).w(px(120.))).child("important-friends"))
+    .child(icon(ICON_SIGNAL).size(px(16.)).ml(px(6.)).text_color(tokens::ICON_SUCCESS))
     .child(text(tokens::TYPE_M, FontWeight::MEDIUM, tokens::TEXT_SUCCESS).ml(px(4.)).mr(px(11.)).child("12ms"));
 
   // 28px hit boxes centred on the 22px glyphs keep the icons at x=11/14/13.

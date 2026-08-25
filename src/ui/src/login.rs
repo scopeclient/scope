@@ -143,7 +143,7 @@ impl Login {
       })
       .text_size(tokens::TYPE_M)
       .font_weight(FontWeight::MEDIUM)
-      .text_color(tokens::TEXT)
+      .text_color(WHITE)
       .child(Input::new(&self.token).appearance(false));
 
     v_flex()
@@ -163,9 +163,7 @@ impl Login {
       )
       .child(field)
       .child(self.kind_toggle(cx))
-      .children(
-        error.map(|error| div().mt(px(8.)).text_size(tokens::TYPE_S).line_height(tokens::TYPE_S_LINE).text_color(tokens::TEXT_DANGER).child(error)),
-      )
+      .children(error.map(|error| div().mt(px(8.)).text_size(tokens::TYPE_S).line_height(px(18.)).text_color(tokens::TEXT_DANGER).child(error)))
   }
 
   /// Bot / user token switch under the field, with a one-line hint.
@@ -178,6 +176,7 @@ impl Login {
     v_flex()
       .mt(px(12.))
       .w_full()
+      .items_start()
       .gap(px(6.))
       .child(
         h_flex()
@@ -200,7 +199,7 @@ impl Login {
             cx.listener(|this, _, _, cx| this.set_kind(TokenKind::User, cx)),
           )),
       )
-      .child(div().text_size(tokens::TYPE_S).line_height(tokens::TYPE_S_LINE).text_color(tokens::TEXT_TERTIARY).child(hint))
+      .child(div().text_size(tokens::TYPE_S).line_height(px(18.)).text_color(tokens::TEXT_TERTIARY).child(hint))
   }
 
   fn set_kind(&mut self, kind: TokenKind, cx: &mut Context<Self>) {
@@ -238,18 +237,19 @@ fn kind_pill(
 
 /// Ambient glow behind the card content, approximating the design's gradient
 /// rectangle plus blurred shape (sampled from the mockup): a pink band fading
-/// out over the top 150px, and two soft violet lobes (top-left, right).
+/// out over the top 200px, and two soft lobes whose centres sit above the
+/// card, so the tint hugs the top edge and is gone by mid-card.
 fn glow() -> impl IntoElement {
   div()
     .absolute()
     .inset_0()
-    .child(div().absolute().top_0().left_0().w_full().h(px(150.)).bg(linear_gradient(
+    .child(div().absolute().top_0().left_0().w_full().h(px(200.)).bg(linear_gradient(
       180.,
-      linear_color_stop(tokens::BRAND.opacity(0.11), 0.),
+      linear_color_stop(tokens::BRAND.opacity(0.10), 0.),
       linear_color_stop(tokens::BRAND.opacity(0.), 1.),
     )))
-    .child(glow_lobe(point(px(30.), px(50.)), 280., VIOLET.opacity(0.08)))
-    .child(glow_lobe(point(px(345.), px(100.)), 240., MAGENTA.opacity(0.10)))
+    .child(glow_lobe(point(px(110.), px(-30.)), 260., MAGENTA.opacity(0.13)))
+    .child(glow_lobe(point(px(470.), px(-80.)), 330., VIOLET.opacity(0.09)))
 }
 
 /// Radial falloff (`login-glow.svg` is an alpha mask) centred on `center`.
@@ -338,7 +338,7 @@ fn sign_in_button(
     .border_1()
     .border_color(tokens::BORDER_BRAND)
     .text_size(tokens::TYPE_M)
-    .font_weight(FontWeight::BOLD)
+    .font_weight(FontWeight::SEMIBOLD)
     .text_color(WHITE)
     .when(connecting, |this| this.opacity(0.7).child(connecting_label))
     .when(!connecting, |this| {
