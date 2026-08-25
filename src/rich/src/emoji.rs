@@ -9,12 +9,7 @@ use crate::{emoji_bundled, model::Emoji};
 /// joined by `-`, with U+FE0F dropped unless the sequence contains a ZWJ.
 pub fn twemoji_code(emoji: &str) -> String {
   let keep_fe0f = emoji.contains('\u{200D}');
-  emoji
-    .chars()
-    .filter(|c| keep_fe0f || *c != '\u{FE0F}')
-    .map(|c| format!("{:x}", c as u32))
-    .collect::<Vec<_>>()
-    .join("-")
+  emoji.chars().filter(|c| keep_fe0f || *c != '\u{FE0F}').map(|c| format!("{:x}", c as u32)).collect::<Vec<_>>().join("-")
 }
 
 /// Asset path (bundled) or CDN URL (anything newer than the bundle) for a unicode emoji.
@@ -24,7 +19,10 @@ pub fn twemoji_url(emoji: &str) -> String {
   if emoji_bundled::BUNDLED.binary_search(&code.as_str()).is_ok() {
     format!("emoji/twemoji/{code}.png")
   } else {
-    format!("https://cdn.jsdelivr.net/gh/jdecked/twemoji@{}/assets/72x72/{code}.png", emoji_bundled::TWEMOJI_TAG)
+    format!(
+      "https://cdn.jsdelivr.net/gh/jdecked/twemoji@{}/assets/72x72/{code}.png",
+      emoji_bundled::TWEMOJI_TAG
+    )
   }
 }
 
@@ -61,7 +59,12 @@ pub fn render_emoji(emoji: &Emoji, size: f32) -> AnyElement {
     .flex()
     .items_center()
     .justify_center()
-    .child(img(url).size(px(size)).object_fit(ObjectFit::Contain).with_fallback(move || div().text_size(px(size * 0.8)).child(alt.clone()).into_any_element()))
+    .child(
+      img(url)
+        .size(px(size))
+        .object_fit(ObjectFit::Contain)
+        .with_fallback(move || div().text_size(px(size * 0.8)).child(alt.clone()).into_any_element()),
+    )
     .into_any_element()
 }
 
