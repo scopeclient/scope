@@ -146,15 +146,6 @@ fn initial(name: &str) -> String {
   name.chars().find(|c| c.is_alphanumeric()).map(|c| c.to_uppercase().to_string()).unwrap_or_default()
 }
 
-fn presence_color(presence: Presence) -> Hsla {
-  match presence {
-    Presence::Online => tokens::ICON_SUCCESS,
-    Presence::Idle => tokens::ICON_WARNING,
-    Presence::DoNotDisturb => tokens::ICON_DANGER,
-    Presence::Offline => tokens::TEXT_MUTED,
-  }
-}
-
 fn presence_label(presence: Presence) -> &'static str {
   match presence {
     Presence::Online => "Online",
@@ -196,7 +187,7 @@ fn header(user: &UserInfo) -> impl IntoElement {
           .h(px(18.))
           .items_center()
           .gap(px(6.))
-          .child(div().size(px(4.)).rounded_full().bg(presence_color(user.presence)))
+          .child(div().size(px(4.)).rounded_full().bg(crate::shell::member_list::presence_color(user.presence)))
           .child(text(tokens::TYPE_S, FontWeight::MEDIUM, tokens::TEXT_SECONDARY).child(status)),
       ),
   )
