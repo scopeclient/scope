@@ -1,11 +1,10 @@
 [package]
 name = "scope-backend-cache"
-version = "0.1.0"
-edition = "2021"
-license = "AGPL-3.0-or-later"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
 
 [dependencies]
-gpui.workspace = true
-rand = "0.8.5"
-scope-chat = { version = "0.1.0", path = "../chat" }
-tokio = "1.41.1"
+rand.workspace = true
+scope-chat.workspace = true
+tokio.workspace = true

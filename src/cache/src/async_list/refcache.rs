@@ -66,6 +66,40 @@ impl<I: Clone + Eq + PartialEq> CacheReferences<I> {
     Some(bottom_bound.item_references.last().unwrap().clone())
   }
 
+  /// Forget `identifier`; its neighbours become adjacent. Returns whether it was present.
+  ///
+  /// A segment emptied by this is dropped along with any top/bottom bound it carried, so the
+  /// next lookup there falls through to the backing list.
+  pub fn remove(&mut self, identifier: &I) -> bool {
+    let mut emptied = None;
+
+    let found = self.dense_segments.iter_mut().any(|(segment_id, segment)| {
+      if !segment.remove(identifier) {
+        return false;
+      }
+
+      if segment.is_empty() {
+        emptied = Some(*segment_id);
+      }
+
+      true
+    });
+
+    if let Some(segment_id) = emptied {
+      self.dense_segments.remove(&segment_id);
+
+      if self.top_bounded_identifier == Some(segment_id) {
+        self.top_bounded_identifier = None;
+      }
+
+      if self.bottom_bounded_identifier == Some(segment_id) {
+        self.bottom_bounded_identifier = None;
+      }
+    }
+
+    found
+  }
+
   pub fn get(&self, index: AsyncListIndex<I>) -> Exists<I> {
     for segment in self.dense_segments.values() {
       let result = segment.get(index.clone());

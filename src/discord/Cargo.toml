@@ -1,19 +1,24 @@
 [package]
 name = "scope-backend-discord"
-version = "0.1.0"
-edition = "2021"
-license = "AGPL-3.0-or-later"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
 
 [dependencies]
-gpui.workspace = true
-scope-chat = { version = "0.1.0", path = "../chat" }
-serenity = { git = "https://github.com/scopeclient/serenity", version = "0.12" }
-tokio = "1.41.1"
+atomic_refcell = "0.1"
+catty = "0.1"
 chrono.workspace = true
-scope-backend-cache = { version = "0.1.0", path = "../cache" }
-url = "2.5.3"
-querystring = "1.1.0"
-catty = "0.1.5"
-atomic_refcell = "0.1.13"
-rand = "0.8.5"
-dashmap = "6.1.0"
+dashmap = "6"
+gpui.workspace = true
+log.workspace = true
+querystring = "1.1"
+rand.workspace = true
+scope-backend-cache = { path = "../cache" }
+scope-chat.workspace = true
+scope-rich.workspace = true
+serenity = { git = "https://github.com/scopeclient/serenity", version = "0.12" }
+tokio.workspace = true
+url = "2"
+
+[dev-dependencies]
+serde_json = "1"

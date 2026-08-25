@@ -48,6 +48,23 @@ impl<I: Clone + Eq + PartialEq> CacheReferencesSlice<I> {
     self.item_references.push(index);
   }
 
+  /// Drop `item`; the items either side of it become neighbours. Returns whether it was present.
+  ///
+  /// The slice may be left empty, which violates its invariant: the caller must discard it then.
+  pub fn remove(&mut self, item: &I) -> bool {
+    match self.item_references.iter().position(|haystack| haystack == item) {
+      Some(index) => {
+        self.item_references.remove(index);
+        true
+      }
+      None => false,
+    }
+  }
+
+  pub fn is_empty(&self) -> bool {
+    self.item_references.is_empty()
+  }
+
   pub fn get(&self, index: AsyncListIndex<I>) -> Exists<I> {
     let index = self.get_index(index);
 

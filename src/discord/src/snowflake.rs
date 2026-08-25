@@ -39,3 +39,15 @@ impl From<MessageId> for Snowflake {
     Snowflake(value.get())
   }
 }
+
+impl From<Snowflake> for scope_chat::nav::Id {
+  fn from(value: Snowflake) -> Self {
+    scope_chat::nav::Id(value.0)
+  }
+}
+
+impl From<scope_chat::nav::Id> for Snowflake {
+  fn from(value: scope_chat::nav::Id) -> Self {
+    Snowflake(value.0)
+  }
+}

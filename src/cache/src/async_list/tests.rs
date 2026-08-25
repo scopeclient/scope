@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use scope_chat::async_list::{AsyncListIndex, AsyncListItem, AsyncListResult};
 
 #[allow(unused_imports)]
-use crate::async_list::{refcacheslice::Exists, AsyncListCache};
+use crate::async_list::{AsyncListCache, refcacheslice::Exists};
 
 #[allow(dead_code)]
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -238,4 +238,81 @@ pub fn cache_can_merge() {
   assert_query_exists(cache.get(AsyncListIndex::Before(2)), ListItem(1), false, false);
   assert_query_exists(cache.get(AsyncListIndex::After(0)), ListItem(1), false, false);
   assert_query_exists(cache.get(AsyncListIndex::Before(1)), ListItem(0), false, false);
+}
+
+#[test]
+pub fn cache_remove_joins_neighbours() {
+  let mut cache = AsyncListCache::<ListItem>::new();
+
+  cache.append_bottom(ListItem(0));
+  cache.append_bottom(ListItem(1));
+  cache.append_bottom(ListItem(2));
+
+  assert_eq!(cache.remove(&1), Some(ListItem(1)));
+  assert_eq!(cache.remove(&1), None);
+  assert_eq!(cache.find(&1), None);
+
+  assert_query_exists(cache.get(AsyncListIndex::After(0)), ListItem(2), false, true);
+  assert_query_exists(cache.get(AsyncListIndex::Before(2)), ListItem(0), false, false);
+  assert_query_exists(cache.get(AsyncListIndex::RelativeToBottom(1)), ListItem(0), false, false);
+}
+
+#[test]
+pub fn cache_remove_at_bottom_moves_the_bound() {
+  let mut cache = AsyncListCache::<ListItem>::new();
+
+  cache.append_bottom(ListItem(0));
+  cache.append_bottom(ListItem(1));
+
+  assert_eq!(cache.remove(&1), Some(ListItem(1)));
+  assert_eq!(cache.bounded_at_bottom_by(), Some(0));
+  assert_query_exists(cache.get(AsyncListIndex::RelativeToBottom(0)), ListItem(0), false, true);
+  assert!(matches!(cache.get(AsyncListIndex::After(0)), Exists::No));
+}
+
+#[test]
+pub fn cache_remove_last_item_forgets_the_bounds() {
+  let mut cache = AsyncListCache::<ListItem>::new();
+
+  cache.append_bottom(ListItem(0));
+  assert_eq!(cache.remove(&0), Some(ListItem(0)));
+
+  assert_eq!(cache.bounded_at_bottom_by(), None);
+  assert_eq!(cache.bounded_at_top_by(), None);
+  assert!(matches!(cache.get(AsyncListIndex::RelativeToBottom(0)), Exists::Unknown));
+
+  // The cache is usable again afterwards.
+  cache.append_bottom(ListItem(5));
+  assert_query_exists(cache.get(AsyncListIndex::RelativeToBottom(0)), ListItem(5), false, true);
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct Versioned {
+  id: i64,
+  version: u32,
+}
+
+impl AsyncListItem for Versioned {
+  type Identifier = i64;
+
+  fn get_list_identifier(&self) -> Self::Identifier {
+    self.id
+  }
+}
+
+#[test]
+pub fn cache_replace_keeps_position_and_ignores_unknown_items() {
+  let mut cache = AsyncListCache::<Versioned>::new();
+
+  cache.append_bottom(Versioned { id: 0, version: 1 });
+  cache.append_bottom(Versioned { id: 1, version: 1 });
+
+  assert_eq!(cache.replace(Versioned { id: 0, version: 2 }), Some(Versioned { id: 0, version: 1 }));
+  assert_eq!(cache.find(&0), Some(Versioned { id: 0, version: 2 }));
+  assert_query_exists(cache.get(AsyncListIndex::Before(1)), Versioned { id: 0, version: 2 }, false, false);
+
+  assert_eq!(cache.replace(Versioned { id: 9, version: 1 }), None);
+  assert_eq!(cache.find(&9), None);
+  assert!(matches!(cache.get(AsyncListIndex::After(1)), Exists::No));
 }
