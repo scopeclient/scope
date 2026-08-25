@@ -1,12 +1,7 @@
 use std::fmt::Write;
 
 use reqwest::header::{
-    HeaderMap as Headers,
-    HeaderValue,
-    AUTHORIZATION,
-    CONTENT_LENGTH,
-    CONTENT_TYPE,
-    USER_AGENT,
+    HeaderMap as Headers, HeaderValue, AUTHORIZATION, CONTENT_LENGTH, CONTENT_TYPE,
 };
 use reqwest::{Client, RequestBuilder as ReqwestRequestBuilder, Url};
 use tracing::instrument;
@@ -33,14 +28,7 @@ pub struct Request<'a> {
 
 impl<'a> Request<'a> {
     pub const fn new(route: Route<'a>, method: LightMethod) -> Self {
-        Self {
-            body: None,
-            multipart: None,
-            headers: None,
-            method,
-            route,
-            params: None,
-        }
+        Self { body: None, multipart: None, headers: None, method, route, params: None }
     }
 
     pub fn body(mut self, body: Option<Vec<u8>>) -> Self {
@@ -88,7 +76,8 @@ impl<'a> Request<'a> {
             .request(self.method.reqwest_method(), Url::parse(&path).map_err(HttpError::Url)?);
 
         let mut headers = self.headers.unwrap_or_default();
-        headers.insert(USER_AGENT, HeaderValue::from_static(constants::USER_AGENT));
+        // User-Agent comes from the reqwest client's default headers (see
+        // HttpBuilder::user_agent), so both this path and the ratelimiter use it.
         headers
             .insert(AUTHORIZATION, HeaderValue::from_str(token).map_err(HttpError::InvalidHeader)?);
 

@@ -150,10 +150,27 @@ impl DiscordClient {
     }
   }
 
+  /// UA per token kind: Discord's edge rejects bot REST calls that carry a
+  /// browser user agent (403 / code 40333), while user tokens need one.
+  fn build_http(token: &str, kind: TokenKind) -> Http {
+    let builder = serenity::http::HttpBuilder::new(Self::full_token(token, kind));
+
+    match kind {
+      TokenKind::Bot => builder
+        .user_agent(concat!(
+          "DiscordBot (https://github.com/scopeclient/scope, ",
+          env!("CARGO_PKG_VERSION"),
+          ")"
+        ))
+        .build(),
+      TokenKind::User => builder.build(),
+    }
+  }
+
   /// Check a token against `users/@me` without opening a gateway connection.
   /// Returns the account's display name.
   pub async fn validate_token(token: &str, kind: TokenKind) -> Result<String, ConnectError> {
-    let http = Http::new(&Self::full_token(token, kind));
+    let http = Self::build_http(token, kind);
 
     match http.get_current_user().await {
       Ok(user) => Ok(user.display_name().to_owned()),
@@ -181,7 +198,8 @@ impl DiscordClient {
       ..Default::default()
     });
 
-    let mut discord = serenity::Client::builder(token, intents)
+    let http = Self::build_http(&token, kind);
+    let mut discord = serenity::all::ClientBuilder::new_with_http(http, intents)
       .event_handler_arc(client.clone())
       .raw_event_handler(RawEvents(client.weak.clone()))
       .await

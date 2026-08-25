@@ -57,7 +57,7 @@ pub struct HttpBuilder {
     token: SecretString,
     proxy: Option<String>,
     application_id: Option<ApplicationId>,
-    default_allowed_mentions: Option<CreateAllowedMentions>,
+    default_allowed_mentions: Option<CreateAllowedMentions>,    user_agent: Option<String>,
 }
 
 impl HttpBuilder {
@@ -72,6 +72,7 @@ impl HttpBuilder {
             proxy: None,
             application_id: None,
             default_allowed_mentions: None,
+            user_agent: None,
         }
     }
 
@@ -139,13 +140,26 @@ impl HttpBuilder {
         self
     }
 
+    /// User-Agent sent with every request (set once on the underlying reqwest
+    /// client, so the plain and ratelimited paths both use it). Defaults to the
+    /// browser disguise in [`constants::USER_AGENT`], which user-account tokens
+    /// need; bot tokens should pass a `DiscordBot (url, version)` value, since
+    /// Discord's edge protection rejects bot REST calls with a browser UA
+    /// (403, JSON code 40333 "internal network error").
+    #[must_use]
+    pub fn user_agent(mut self, user_agent: impl Into<String>) -> Self {
+        self.user_agent = Some(user_agent.into());
+        self
+    }
+
     /// Use the given configuration to build the `Http` client.
     #[must_use]
     pub fn build(self) -> Http {
         let application_id = AtomicU64::new(self.application_id.map_or(0, ApplicationId::get));
 
+        let user_agent = self.user_agent.unwrap_or_else(|| constants::USER_AGENT.to_owned());
         let client = self.client.unwrap_or_else(|| {
-            let builder = configure_client_backend(Client::builder());
+            let builder = configure_client_backend(Client::builder()).user_agent(user_agent);
             builder.build().expect("Cannot build reqwest::Client")
         });
 
