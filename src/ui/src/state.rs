@@ -156,7 +156,7 @@ impl AppState {
               this.connecting_as = Some(name);
               cx.notify();
             })
-            .ok();
+            .unwrap_or_else(|_| log::debug!("app state dropped before this update applied"));
         }
         Err(error) => {
           if persist && error == ConnectError::InvalidToken {
@@ -167,7 +167,7 @@ impl AppState {
               this.connection = Connection::Failed(error.to_string());
               cx.notify();
             })
-            .ok();
+            .unwrap_or_else(|_| log::debug!("app state dropped before this update applied"));
           return;
         }
       }
@@ -192,7 +192,7 @@ impl AppState {
               this.notice = notice;
               this.set_backend(client, cx);
             })
-            .ok();
+            .unwrap_or_else(|_| log::debug!("app state dropped before this update applied"));
         }
         Err(error) => {
           if persist && error == ConnectError::InvalidToken {
@@ -204,7 +204,7 @@ impl AppState {
               this.connection = Connection::Failed(error.to_string());
               cx.notify();
             })
-            .ok();
+            .unwrap_or_else(|_| log::debug!("app state dropped before this update applied"));
         }
       }
     })
@@ -443,7 +443,7 @@ impl AppState {
             this.channel_views.insert(channel, view);
             cx.notify();
           })
-          .ok();
+          .unwrap_or_else(|_| log::debug!("app state dropped before this update applied"));
       }
     })
     .detach();
