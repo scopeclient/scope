@@ -15,7 +15,7 @@ The Discord client for power users.
   </tbody>
 </table>
 
-<sup>Nightly releases can be found <a href="https://github.com/scopeclient/scope/actions/workflows/build.yml">here</a>. </sup>
+<img src="./.github/screenshot.png" alt="Scope showing a server with rich messages, reactions and the member list" width="100%" />
 
 </div>
 
