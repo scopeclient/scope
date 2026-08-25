@@ -11,8 +11,8 @@ use std::{cell::Cell, collections::HashSet, rc::Rc, sync::Arc};
 
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use gpui::{
-  ClickEvent, Context, Entity, FontWeight, IntoElement, ListAlignment, ListOffset, ListState, ParentElement, Pixels, Render, SharedString, Styled,
-  Window, div, list, prelude::*, px, white,
+  Animation, AnimationExt as _, ClickEvent, Context, Entity, FontWeight, IntoElement, ListAlignment, ListOffset, ListState, ParentElement, Pixels,
+  Render, SharedString, Styled, Window, div, list, prelude::*, pulsating_between, px, white,
 };
 use scope_chat::{
   async_list::{AsyncListIndex, AsyncListItem},
@@ -39,6 +39,8 @@ const PILL_INSET: f32 = 12.;
 const INITIAL_LOAD: usize = 50;
 /// Messages fetched per scroll-up trigger.
 const OLDER_LOAD: usize = 50;
+/// Skeleton rows shown above the list while older history loads.
+const SKELETON_ROWS: usize = 10;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum EdgeState {
@@ -68,7 +70,9 @@ type Rows<M> = Rc<Vec<Row<M>>>;
 enum Row<M: Message> {
   /// History starts here ("this is the beginning of the conversation").
   Start,
-  /// An edge load is in flight.
+  /// An edge load is in flight; the index seeds the skeleton's shape.
+  Skeleton(usize),
+  /// A short in-flight marker (bottom edge).
   Loading,
   /// The group below is the first on a new local calendar day.
   DateSeparator(NaiveDate),
@@ -101,7 +105,11 @@ fn build_rows<M: Message>(
   if top_reached {
     rows.push(Row::Start);
   } else if top == EdgeState::Loading {
-    rows.push(Row::Loading);
+    // Discord-style: a screenful of fake message groups shimmers above while
+    // the next page loads. Seeded per row so shapes are stable across frames.
+    for i in 0..SKELETON_ROWS {
+      rows.push(Row::Skeleton(i));
+    }
   }
 
   let top_chrome = rows.len();
@@ -218,6 +226,10 @@ pub struct MessageListComponent<C: Channel + 'static> {
   bounds_flags: Entity<BoundFlags>,
 
   rows: Rows<C::Message>,
+  /// Chrome rows above the first message as of the last rebuild; scroll
+  /// carry-over must absorb changes here (10 skeletons appearing must not
+  /// shove the view by 10 rows).
+  top_chrome: usize,
   list_state: Option<ListState>,
   /// False as soon as the user scrolls away from the bottom (driven by real
   /// scroll events); while true, growth keeps the view glued to the newest
@@ -247,6 +259,7 @@ impl<C: Channel + 'static> MessageListComponent<C> {
       started: false,
       bounds_flags: cx.new(|_| BoundFlags::default()),
       rows: Rc::new(Vec::new()),
+      top_chrome: 0,
       list_state: None,
       pinned_to_bottom: Rc::new(Cell::new(true)),
       was_pinned: true,
@@ -529,11 +542,12 @@ impl<C: Channel + 'static> MessageListComponent<C> {
         }
       }
 
-      new_scroll_top.item_ix += shift;
+      let chrome_delta = build.top_chrome as i64 - self.top_chrome as i64;
+      new_scroll_top.item_ix = (new_scroll_top.item_ix as i64 + shift as i64 + chrome_delta).max(0) as usize;
       new_list_state.scroll_to(new_scroll_top);
     }
 
-    let _ = build.top_chrome;
+    self.top_chrome = build.top_chrome;
     self.rows = Rc::new(build.rows);
     self.unseen = build.unseen;
     self.list_state = Some(new_list_state);
@@ -611,6 +625,7 @@ impl<C: Channel + 'static> Render for MessageListComponent<C> {
       } else {
         match &rows[idx - 1] {
           Row::Start => start_row().into_any_element(),
+          Row::Skeleton(seed) => skeleton_row(*seed).into_any_element(),
           Row::Loading => loading_row().into_any_element(),
           Row::DateSeparator(day) => date_separator(separator_label(*day, today)).into_any_element(),
           Row::NewDivider => new_divider().into_any_element(),
@@ -621,6 +636,39 @@ impl<C: Channel + 'static> Render for MessageListComponent<C> {
 
     div().size_full().relative().bg(tokens::BG_SECONDARY).child(list.size_full()).children((!pinned).then(|| self.jump_pill(cx)))
   }
+}
+
+/// One fake message group: avatar circle, name bar, one to three text bars.
+/// Widths are derived from `seed` so the shapes are varied but stable.
+fn skeleton_row(seed: usize) -> impl IntoElement {
+  let mix = |n: usize| (seed.wrapping_mul(2654435761).wrapping_add(n * 97)) % 100;
+  let name_w = 64. + (mix(1) as f32) * 0.8; // 64..144
+  let lines = 1 + mix(2) % 3;
+  let bar = |w: f32| div().h(px(12.)).w(px(w)).rounded_full().bg(tokens::BG_SURFACE);
+
+  div()
+    .w_full()
+    .pl(px(ROW_PAD_LEFT))
+    .pr(px(ROW_PAD_RIGHT))
+    .py(px(9.))
+    .flex()
+    .gap(px(16.))
+    .child(div().flex_shrink_0().size(px(36.)).rounded_full().bg(tokens::BG_SURFACE))
+    .child(
+      div()
+        .flex_1()
+        .min_w_0()
+        .flex()
+        .flex_col()
+        .gap(px(8.))
+        .child(bar(name_w))
+        .children((0..lines).map(|line| bar(120. + (mix(3 + line) as f32) * 2.6))), // 120..380
+    )
+    .with_animation(
+      ("skeleton-pulse", seed),
+      Animation::new(std::time::Duration::from_millis(1400)).repeat().with_easing(pulsating_between(0.35, 0.7)),
+      |this, delta| this.opacity(delta),
+    )
 }
 
 /// "this is the beginning of the conversation" above the oldest message.
