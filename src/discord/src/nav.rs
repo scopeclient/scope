@@ -2,7 +2,7 @@
 
 use std::cmp::Reverse;
 
-use scope_chat::nav::{ChannelInfo, ChannelKind, GuildInfo, Id, MemberInfo, Presence, UserInfo};
+use scope_chat::nav::{ChannelInfo, ChannelKind, GuildInfo, Id, MemberInfo, MemberSection, Presence, UserInfo};
 use serenity::all::{Activity, ActivityType, ChannelType, GuildChannel, OnlineStatus, Role, User};
 
 use crate::{client::DiscordClient, dm::DmChannel, snowflake::Snowflake};
@@ -151,31 +151,34 @@ impl DiscordClient {
     let mut hoisted: Vec<&Role> = guild.roles.values().filter(|role| role.hoist).collect();
     hoisted.sort_by_key(|role| Reverse((role.position, role.id)));
 
-    let mut members: Vec<(usize, MemberInfo)> = guild
+    let mut members: Vec<(MemberSection, MemberInfo)> = guild
       .members
       .values()
       .map(|member| {
         let presence = guild.presences.get(&member.user.id);
-        let rank = hoisted.iter().position(|role| member.roles.contains(&role.id)).unwrap_or(hoisted.len());
+        let status = presence.map(|p| presence_from(p.status)).unwrap_or_default();
+        let hoist_rank = hoisted.iter().position(|role| member.roles.contains(&role.id));
+        let section = MemberSection::of(hoist_rank, status);
 
         let info = MemberInfo {
           id: id(member.user.id),
           display_name: member.display_name().to_owned(),
           avatar_url: Some(member.face()),
-          presence: presence.map(|p| presence_from(p.status)).unwrap_or_default(),
+          presence: status,
           status_text: presence.and_then(|p| custom_status(&p.activities)),
-          role_group: hoisted.get(rank).map(|role| role.name.clone()),
+          role_group: Some(match section {
+            MemberSection::Role(rank) => hoisted[rank].name.clone(),
+            MemberSection::Online => "online".to_owned(),
+            MemberSection::Offline => "offline".to_owned(),
+          }),
         };
 
-        (rank, info)
+        (section, info)
       })
       .collect();
 
-    members.sort_by(|(rank_a, a), (rank_b, b)| {
-      rank_a
-        .cmp(rank_b)
-        .then_with(|| (a.presence == Presence::Offline).cmp(&(b.presence == Presence::Offline)))
-        .then_with(|| a.display_name.to_lowercase().cmp(&b.display_name.to_lowercase()))
+    members.sort_by(|(section_a, a), (section_b, b)| {
+      section_a.cmp(section_b).then_with(|| a.display_name.to_lowercase().cmp(&b.display_name.to_lowercase()))
     });
 
     members.into_iter().map(|(_, member)| member).collect()

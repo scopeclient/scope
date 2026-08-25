@@ -1,7 +1,7 @@
 //! Seed content for the demo backend, lifted from the Figma mockups.
 
 use chrono::{DateTime, Duration, Utc};
-use scope_chat::nav::{ChannelInfo, ChannelKind, GuildInfo, Id, MemberInfo, Presence, UserInfo};
+use scope_chat::nav::{ChannelInfo, ChannelKind, GuildInfo, Id, MemberInfo, MemberSection, Presence, UserInfo};
 use scope_rich::markdown::{MentionResolver, parse};
 use scope_rich::{
   Attachment, Block, ButtonStyle, Component, ComponentRow, Embed, EmbedAuthor, EmbedField, EmbedFooter, EmbedKind, EmbedMedia, EmbedProvider, Emoji,
@@ -171,9 +171,34 @@ pub fn members(guild: Id) -> Vec<MemberInfo> {
     role_group: p.role_group.map(Into::into),
   });
 
-  match guild.0 {
+  let mut list: Vec<MemberInfo> = match guild.0 {
     10 => everyone.collect(),
     _ => everyone.take(3).collect(),
+  };
+  arrange_members(&mut list);
+  list
+}
+
+/// Roles that "hoist" (display separately) in the demo server, highest first.
+const HOISTED_ROLES: [&str; 1] = ["Admins"];
+
+/// Discord's member-list order via [`MemberSection`]: hoisted roles, then
+/// online, then offline — alphabetical inside each — and relabel `role_group`
+/// to the section shown in the list.
+pub fn arrange_members(members: &mut [MemberInfo]) {
+  let section = |m: &MemberInfo| {
+    let rank = m.role_group.as_deref().and_then(|group| HOISTED_ROLES.iter().position(|role| *role == group));
+    MemberSection::of(rank, m.presence)
+  };
+
+  members.sort_by(|a, b| section(a).cmp(&section(b)).then_with(|| a.display_name.to_lowercase().cmp(&b.display_name.to_lowercase())));
+
+  for member in members {
+    member.role_group = Some(match section(member) {
+      MemberSection::Role(rank) => HOISTED_ROLES[rank].to_owned(),
+      MemberSection::Online => "online".to_owned(),
+      MemberSection::Offline => "offline".to_owned(),
+    });
   }
 }
 

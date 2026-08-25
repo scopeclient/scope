@@ -98,3 +98,46 @@ pub struct MemberInfo {
   /// Hoisted role name used to group the member list ("MEMBERS", "ADMINS", …).
   pub role_group: Option<String>,
 }
+
+/// One section of the member list, in display order. The derived ordering is
+/// the whole algorithm: hoisted roles by rank (0 = highest role position),
+/// then everyone else who is online, then every offline member regardless of
+/// role — exactly how the official Discord client arranges its member list.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum MemberSection {
+  /// Online with a hoisted role; `0` is the highest hoisted role.
+  Role(usize),
+  /// Online without a hoisted role.
+  Online,
+  /// Offline, even when hoisted: offline members never hold their role's spot.
+  Offline,
+}
+
+impl MemberSection {
+  pub fn of(hoist_rank: Option<usize>, presence: Presence) -> Self {
+    match (presence, hoist_rank) {
+      (Presence::Offline, _) => Self::Offline,
+      (_, Some(rank)) => Self::Role(rank),
+      (_, None) => Self::Online,
+    }
+  }
+}
+
+#[cfg(test)]
+mod member_section_tests {
+  use super::*;
+
+  #[test]
+  fn hoisted_roles_precede_online_precede_offline() {
+    let admin = MemberSection::of(Some(0), Presence::Online);
+    let mods = MemberSection::of(Some(1), Presence::Idle);
+    let plain = MemberSection::of(None, Presence::DoNotDisturb);
+    let ghost = MemberSection::of(None, Presence::Offline);
+    assert!(admin < mods && mods < plain && plain < ghost);
+  }
+
+  #[test]
+  fn offline_trumps_any_role() {
+    assert_eq!(MemberSection::of(Some(0), Presence::Offline), MemberSection::Offline);
+  }
+}

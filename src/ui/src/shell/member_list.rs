@@ -18,9 +18,9 @@ use crate::{icons::ScopeIcon, shell::MEMBER_LIST_WIDTH, state::AppState, theme::
 /// Group label for members without a hoisted role.
 const DEFAULT_GROUP: &str = "members";
 
-const ROW_HEIGHT: f32 = 38.;
+const ROW_HEIGHT: f32 = 44.;
 const HEADER_HEIGHT: f32 = 22.;
-const AVATAR_SIZE: f32 = 28.;
+const AVATAR_SIZE: f32 = 32.;
 const DOT_SIZE: f32 = 10.;
 /// Content starts 13px from the panel's outer edge; 1px of that is the divider.
 const EDGE_PADDING: f32 = 13.;
@@ -135,6 +135,7 @@ fn group_header(
 
   h_flex()
     .id(("member-group", index))
+    .when(index > 0, |this| this.mt(px(14.)))
     .h(px(HEADER_HEIGHT))
     .w_full()
     .pl(px(LEFT_PADDING))
@@ -169,29 +170,21 @@ fn member_row(index: usize, member: &MemberInfo) -> impl IntoElement {
   let name = div()
     .text_size(tokens::TYPE_M)
     .line_height(tokens::TYPE_M_LINE)
-    .font_weight(FontWeight::BOLD)
+    .font_weight(FontWeight::SEMIBOLD)
     .text_color(tokens::TEXT)
     .truncate()
     .child(member.display_name.clone());
 
   // Name box at y=3 and subtitle at y=21 put the baselines where Figma has them.
-  let text = v_flex()
-    .flex_1()
-    .min_w_0()
-    .h_full()
-    .when(status.is_some(), |this| this.pt(px(3.)))
-    .when(status.is_none(), |this| this.justify_center())
-    .child(name)
-    .children(status.map(|status| {
-      div()
-        .mt(px(-2.))
-        .text_size(tokens::TYPE_S)
-        .line_height(tokens::TYPE_S_LINE)
-        .font_weight(FontWeight::MEDIUM)
-        .text_color(tokens::TEXT_TERTIARY)
-        .truncate()
-        .child(status)
-    }));
+  let text = v_flex().flex_1().min_w_0().h_full().justify_center().gap(px(1.)).child(name).children(status.map(|status| {
+    div()
+      .text_size(tokens::TYPE_S)
+      .line_height(tokens::TYPE_S_LINE)
+      .font_weight(FontWeight::MEDIUM)
+      .text_color(tokens::TEXT_TERTIARY)
+      .truncate()
+      .child(status)
+  }));
 
   h_flex()
     .id(("member", index))

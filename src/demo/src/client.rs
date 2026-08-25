@@ -305,6 +305,8 @@ impl DemoClient {
       Presence::Offline => Presence::Online,
     };
 
+    data::arrange_members(list);
+
     drop(members);
     self.emit(ClientEvent::PresenceUpdated(guild));
   }
