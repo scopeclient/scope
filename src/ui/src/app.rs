@@ -1,33 +1,29 @@
 use components::theme::ActiveTheme;
-use gpui::{div, img, rgb, Context, Model, ParentElement, Render, Styled, View, ViewContext, VisualContext};
+use gpui::{div, img, rgb, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window};
 use scope_backend_discord::{channel::DiscordChannel, client::DiscordClient, snowflake::Snowflake};
 
 use crate::channel::ChannelView;
 
 pub struct App {
-  channel: Model<Option<View<ChannelView<DiscordChannel>>>>,
+  channel: Entity<Option<Entity<ChannelView<DiscordChannel>>>>,
 }
 
 impl App {
-  pub fn new(ctx: &mut ViewContext<'_, Self>) -> App {
+  pub fn new(window: &mut Window, cx: &mut gpui::App) -> App {
     let token = dotenv::var("DISCORD_TOKEN").expect("Must provide DISCORD_TOKEN in .env");
     let demo_channel_id = dotenv::var("DEMO_CHANNEL_ID").expect("Must provide DEMO_CHANNEL_ID in .env");
 
-    let mut context = ctx.to_async();
-
-    let channel = ctx.new_model(|_| None);
+    let channel = cx.new(|_| None);
 
     let async_channel = channel.clone();
-
-    ctx
-      .foreground_executor()
-      .spawn(async move {
+    window
+      .spawn(cx, |mut cx| async move {
         let client = DiscordClient::new(token).await;
         let channel = client.channel(Snowflake(demo_channel_id.parse().unwrap())).await;
-        let view = context.new_view(|cx| ChannelView::<DiscordChannel>::create(cx, channel)).unwrap();
+        let view = cx.update(|window, cx| cx.new(|cx| ChannelView::<DiscordChannel>::create(window, cx, channel))).unwrap();
 
         async_channel
-          .update(&mut context, |a, b| {
+          .update(&mut cx, |a, b| {
             *a = Some(view);
             b.notify()
           })
@@ -40,7 +36,7 @@ impl App {
 }
 
 impl Render for App {
-  fn render(&mut self, cx: &mut gpui::ViewContext<Self>) -> impl gpui::IntoElement {
+  fn render(&mut self, _: &mut Window, cx: &mut Context<'_, Self>) -> impl IntoElement {
     let mut content = div().w_full().h_full();
 
     if let Some(channel) = self.channel.read(cx).as_ref() {
@@ -50,6 +46,13 @@ impl Render for App {
     let title_bar = components::TitleBar::new()
       .child(div().flex().flex_row().text_color(rgb(0xFFFFFF)).gap_2().child(img("brand/scope-round-200.png").w_6().h_6()).child("Scope"));
 
-    div().bg(cx.theme().background).w_full().h_full().flex().flex_col().child(title_bar).child(content)
+    div()
+      .bg(cx.theme().background)
+      .w_full()
+      .h_full()
+      .flex()
+      .flex_col()
+      .child(title_bar)
+      .child(content)
   }
 }

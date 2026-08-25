@@ -1,9 +1,11 @@
 use std::sync::{Arc, OnceLock};
 
+use crate::message::reaction_list::DiscordReactionList;
 use author::DiscordMessageAuthor;
 use chrono::{DateTime, Utc};
 use content::DiscordMessageContent;
-use gpui::{View, VisualContext, WindowContext};
+use gpui::{App, AppContext, Entity};
+use scope_chat::reaction::ReactionList;
 use scope_chat::{async_list::AsyncListItem, message::Message};
 use serenity::all::{ModelError, Nonce};
 
@@ -11,6 +13,8 @@ use crate::{client::DiscordClient, snowflake::Snowflake};
 
 pub mod author;
 pub mod content;
+pub mod reaction;
+pub mod reaction_list;
 
 #[derive(Clone)]
 pub enum DiscordMessageData {
@@ -20,7 +24,11 @@ pub enum DiscordMessageData {
     sent_time: DateTime<Utc>,
     list_item_id: Snowflake,
   },
-  Received(Arc<serenity::model::channel::Message>, Option<Arc<serenity::model::guild::Member>>),
+  Received(
+    Arc<serenity::model::channel::Message>,
+    Option<Arc<serenity::model::guild::Member>>,
+    DiscordReactionList,
+  ),
 }
 
 #[derive(Clone)]
@@ -28,7 +36,7 @@ pub struct DiscordMessage {
   pub client: Arc<DiscordClient>,
   pub channel: Arc<serenity::model::channel::Channel>,
   pub data: DiscordMessageData,
-  pub content: OnceLock<View<DiscordMessageContent>>,
+  pub content: Arc<OnceLock<Entity<DiscordMessageContent>>>,
 }
 
 impl DiscordMessage {
@@ -41,12 +49,13 @@ impl DiscordMessage {
     }
     .unwrap();
 
+    let reactions = DiscordReactionList::new(msg.reactions.clone(), channel.id(), msg.id, client.clone());
+
     Self {
       client,
       channel,
-      data: DiscordMessageData::Received(msg, member),
-
-      content: OnceLock::new(),
+      data: DiscordMessageData::Received(msg, member, reactions),
+      content: Arc::new(OnceLock::new()),
     }
   }
 
@@ -56,12 +65,12 @@ impl DiscordMessage {
     channel: Arc<serenity::model::channel::Channel>,
     member: Option<Arc<serenity::model::guild::Member>>,
   ) -> Self {
+    let reactions = DiscordReactionList::new(msg.reactions.clone(), channel.id(), msg.id, client.clone());
     Self {
       client,
       channel,
-      data: DiscordMessageData::Received(msg, member),
-
-      content: OnceLock::new(),
+      data: DiscordMessageData::Received(msg, member, reactions),
+      content: Arc::new(OnceLock::new()),
     }
   }
 }
@@ -71,7 +80,7 @@ enum NonceState<'r> {
   Discord(&'r Option<Nonce>),
 }
 
-impl<'r> PartialEq for NonceState<'r> {
+impl PartialEq for NonceState<'_> {
   fn eq(&self, other: &Self) -> bool {
     match (self, other) {
       // comparing anything with `None` means they are not equal
@@ -113,7 +122,7 @@ impl Message for DiscordMessage {
         },
       },
 
-      DiscordMessageData::Received(message, member) => DiscordMessageAuthor {
+      DiscordMessageData::Received(message, member, ..) => DiscordMessageAuthor {
         client: self.client.clone(),
         data: match member {
           None => author::DiscordMessageAuthorData::NonMemberAuthor(message.clone()),
@@ -124,23 +133,23 @@ impl Message for DiscordMessage {
   }
 
   // TODO: want reviewer discussion. I'm really stretching the abilities of gpui here and im not sure if this is the right way to do this.
-  fn get_content(&self, cx: &mut WindowContext) -> View<Self::Content> {
+  // Additional Context to this discussion: the OnceLock in context CANNOT be cloned because it messes with the internal gpui entityids
+  // and recreates the entity on every interaction making it impossible to interact with the message content in any way. Right now, I'm
+  // using an arc for this, but this feels like a band-aid solution. I do agree that this should be refactored out at some point.
+  fn get_content(&self, cx: &mut App) -> Entity<Self::Content> {
     self
       .content
       .get_or_init(|| {
-        let content = match &self.data {
+        cx.new(|_| match &self.data {
           DiscordMessageData::Pending { content, .. } => DiscordMessageContent::pending(content.clone()),
-          DiscordMessageData::Received(message, _) => DiscordMessageContent::received(message),
-        };
-
-        cx.new_view(|_cx| content)
-      })
-      .clone()
+          DiscordMessageData::Received(message, _, reactions) => DiscordMessageContent::received(message, reactions),
+        })
+      }).clone()
   }
 
   fn get_identifier(&self) -> Option<Snowflake> {
     match &self.data {
-      DiscordMessageData::Received(message, _) => Some(message.id.into()),
+      DiscordMessageData::Received(message, ..) => Some(message.id.into()),
       DiscordMessageData::Pending { .. } => None,
     }
   }
@@ -148,7 +157,7 @@ impl Message for DiscordMessage {
   fn get_nonce(&self) -> impl PartialEq {
     match &self.data {
       DiscordMessageData::Pending { nonce, .. } => NonceState::Fixed(nonce),
-      DiscordMessageData::Received(message, _) => NonceState::Discord(&message.nonce),
+      DiscordMessageData::Received(message, ..) => NonceState::Discord(&message.nonce),
     }
   }
 
@@ -164,7 +173,14 @@ impl Message for DiscordMessage {
   fn get_timestamp(&self) -> Option<DateTime<Utc>> {
     match &self.data {
       DiscordMessageData::Pending { sent_time, .. } => Some(*sent_time),
-      DiscordMessageData::Received(message, _) => DateTime::from_timestamp_millis(message.timestamp.timestamp_millis()),
+      DiscordMessageData::Received(message, ..) => DateTime::from_timestamp_millis(message.timestamp.timestamp_millis()),
+    }
+  }
+
+  fn get_reactions(&mut self) -> Option<&mut impl ReactionList> {
+    match &mut self.data {
+      DiscordMessageData::Pending { .. } => None,
+      DiscordMessageData::Received(_, _, reactions) => Some(reactions),
     }
   }
 }
@@ -175,7 +191,7 @@ impl AsyncListItem for DiscordMessage {
   fn get_list_identifier(&self) -> Self::Identifier {
     match &self.data {
       DiscordMessageData::Pending { list_item_id, .. } => *list_item_id,
-      DiscordMessageData::Received(message, _) => message.id.into(),
+      DiscordMessageData::Received(message, ..) => message.id.into(),
     }
   }
 }

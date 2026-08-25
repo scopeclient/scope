@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use gpui::{div, img, IntoElement, ParentElement, RenderOnce, SharedString, Styled, WindowContext};
+use gpui::{div, img, App, IntoElement, ParentElement, RenderOnce, SharedString, Styled, Window};
 use scope_chat::message::{IconRenderConfig, MessageAuthor};
 use url::Url;
 
@@ -72,7 +72,7 @@ impl MessageAuthor for DiscordMessageAuthor {
 pub struct DisplayName(pub SharedString);
 
 impl RenderOnce for DisplayName {
-  fn render(self, _: &mut WindowContext) -> impl IntoElement {
+  fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
     div().text_sm().child(self.0)
   }
 }
@@ -81,7 +81,7 @@ impl RenderOnce for DisplayName {
 pub struct DisplayIcon(pub String, pub IconRenderConfig);
 
 impl RenderOnce for DisplayIcon {
-  fn render(self, _: &mut WindowContext) -> impl IntoElement {
+  fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
     let mut url = Url::parse(&self.0).unwrap();
     let mut query_params = querystring::querify(url.query().unwrap_or(""));
 

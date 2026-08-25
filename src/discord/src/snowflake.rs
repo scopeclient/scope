@@ -39,3 +39,4 @@ impl From<MessageId> for Snowflake {
     Snowflake(value.get())
   }
 }
+
