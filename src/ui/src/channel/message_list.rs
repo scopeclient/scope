@@ -176,20 +176,20 @@ fn local_day(timestamp: DateTime<Utc>) -> NaiveDate {
   timestamp.with_timezone(&Local).date_naive()
 }
 
-/// "Today", "Yesterday", otherwise "August 24, 2026".
+/// "today", "yesterday", otherwise "august 24, 2026".
 fn separator_label(day: NaiveDate, today: NaiveDate) -> String {
   if day == today {
-    "Today".to_string()
+    "today".to_string()
   } else if day.succ_opt() == Some(today) {
-    "Yesterday".to_string()
+    "yesterday".to_string()
   } else {
-    day.format("%B %-d, %Y").to_string()
+    day.format("%B %-d, %Y").to_string().to_lowercase()
   }
 }
 
 fn jump_label(unseen: usize) -> SharedString {
   match unseen {
-    0 => "Jump to present".into(),
+    0 => "jump to present".into(),
     1 => "1 new message · Jump to present".into(),
     n => format!("{n} new messages · Jump to present").into(),
   }
@@ -472,7 +472,7 @@ impl<C: Channel + 'static> MessageListComponent<C> {
     });
   }
 
-  /// Floating "Jump to present" pill, bottom-right, shown while scrolled up.
+  /// Floating "jump to present" pill, bottom-right, shown while scrolled up.
   fn jump_pill(&self, cx: &mut Context<Self>) -> impl IntoElement {
     div()
       .id("jump-to-present")
@@ -557,7 +557,7 @@ impl<C: Channel + 'static> Render for MessageListComponent<C> {
   }
 }
 
-/// "This is the beginning of the conversation." above the oldest message.
+/// "this is the beginning of the conversation" above the oldest message.
 fn start_row() -> impl IntoElement {
   div()
     .w_full()
@@ -569,7 +569,7 @@ fn start_row() -> impl IntoElement {
     .line_height(px(16.))
     .font_weight(FontWeight::MEDIUM)
     .text_color(tokens::TEXT_TERTIARY)
-    .child("This is the beginning of the conversation.")
+    .child("this is the beginning of the conversation")
 }
 
 /// 1px rules either side of a centred day label.
@@ -600,7 +600,7 @@ fn date_separator(label: String) -> impl IntoElement {
     .child(rule())
 }
 
-/// Thin brand line with a "NEW" pill at its right end.
+/// Thin brand line with a "new" pill at its right end.
 fn new_divider() -> impl IntoElement {
   div()
     .w_full()
@@ -624,7 +624,7 @@ fn new_divider() -> impl IntoElement {
         .line_height(px(12.))
         .font_weight(FontWeight::BOLD)
         .text_color(white())
-        .child("NEW"),
+        .child("new"),
     )
 }
 
@@ -841,18 +841,18 @@ mod tests {
   fn separator_labels() {
     let today = NaiveDate::from_ymd_opt(2026, 8, 24).unwrap();
 
-    assert_eq!(separator_label(today, today), "Today");
-    assert_eq!(separator_label(today.pred_opt().unwrap(), today), "Yesterday");
-    assert_eq!(separator_label(NaiveDate::from_ymd_opt(2026, 8, 1).unwrap(), today), "August 1, 2026");
+    assert_eq!(separator_label(today, today), "today");
+    assert_eq!(separator_label(today.pred_opt().unwrap(), today), "yesterday");
+    assert_eq!(separator_label(NaiveDate::from_ymd_opt(2026, 8, 1).unwrap(), today), "august 1, 2026");
     assert_eq!(
       separator_label(NaiveDate::from_ymd_opt(2025, 12, 31).unwrap(), today),
-      "December 31, 2025"
+      "december 31, 2025"
     );
   }
 
   #[test]
   fn jump_labels() {
-    assert_eq!(jump_label(0), "Jump to present");
+    assert_eq!(jump_label(0), "jump to present");
     assert_eq!(jump_label(1), "1 new message · Jump to present");
     assert_eq!(jump_label(4), "4 new messages · Jump to present");
   }

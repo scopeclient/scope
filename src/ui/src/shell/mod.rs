@@ -77,7 +77,7 @@ impl Render for Shell {
         .text_color(tokens::TEXT_WARNING)
         .child(div().flex_1().min_w_0().child(text))
         .child(
-          div().id("dismiss-notice").cursor_pointer().text_color(tokens::TEXT_TERTIARY).child("Dismiss").on_click(cx.listener(|this, _, _, cx| {
+          div().id("dismiss-notice").cursor_pointer().text_color(tokens::TEXT_TERTIARY).child("dismiss").on_click(cx.listener(|this, _, _, cx| {
             this.state.update(cx, |s, cx| {
               s.notice = None;
               cx.notify();
@@ -107,8 +107,8 @@ impl Render for Shell {
 
 fn empty_state(loading: bool) -> impl IntoElement {
   v_flex().size_full().items_center().justify_center().gap_2().text_color(tokens::TEXT_TERTIARY).child(if loading {
-    "Loading channel…"
+    "loading channel…"
   } else {
-    "Pick a channel to start reading."
+    "pick a channel to start reading"
   })
 }

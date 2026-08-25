@@ -149,7 +149,7 @@ impl<C: Channel + 'static> ChannelView<C> {
     })
     .detach();
 
-    let placeholder = format!("Message {}", options.title);
+    let placeholder = format!("message {}", options.title);
     let message_input = cx.new(|cx| InputState::new(window, cx).auto_grow(FIELD_MIN_ROWS, FIELD_MAX_ROWS).placeholder(placeholder));
 
     // In multi-line mode the input emits `PressEnter` only for the secondary
@@ -289,7 +289,7 @@ fn composer_buttons() -> impl IntoElement {
       composer_button(
         "composer-emoji",
         46.,
-        "Emoji",
+        "emoji",
         Icon::new(ScopeIcon::Emoji).size(px(18.)).text_color(tokens::ICON),
       )
       .rounded_l(radius),
@@ -297,20 +297,20 @@ fn composer_buttons() -> impl IntoElement {
     .child(composer_button(
       "composer-upload",
       47.,
-      "Upload a file",
+      "upload a file",
       Icon::new(ScopeIcon::Upload).size(px(18.)).text_color(tokens::TEXT_TERTIARY),
     ))
     .child(composer_button(
       "composer-gif",
       47.,
-      "GIFs",
-      div().text_size(tokens::TYPE_M).font_weight(FontWeight::EXTRA_BOLD).text_color(tokens::TEXT_TERTIARY).child("GIF"),
+      "gifs",
+      div().text_size(tokens::TYPE_M).font_weight(FontWeight::EXTRA_BOLD).text_color(tokens::TEXT_TERTIARY).child("gif"),
     ))
     .child(
       composer_button(
         "composer-sticker",
         46.,
-        "Stickers",
+        "stickers",
         Icon::new(ScopeIcon::Heart).size(px(16.)).text_color(tokens::TEXT_TERTIARY),
       )
       .rounded_r(radius),

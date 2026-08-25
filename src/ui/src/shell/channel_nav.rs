@@ -130,7 +130,7 @@ impl ChannelNav {
             .font_weight(FontWeight::MEDIUM)
             .text_color(tokens::TEXT_MUTED)
             .whitespace_nowrap()
-            .child("Find channel in server"),
+            .child("find channel in server"),
         )
       })
   }
@@ -158,7 +158,7 @@ impl ChannelNav {
       .active(|this| this.opacity(0.85))
       .whitespace_nowrap()
       .child(Icon::new(ScopeIcon::TriangleUp).w(px(6.)).h(px(5.417)).text_color(tokens::ICON_SECONDARY).rotate(radians(rotation)))
-      .child(category.name.to_uppercase())
+      .child(category.name.to_lowercase())
       .on_click(cx.listener(move |this, _, _, cx| this.toggle_category(id, cx)))
   }
 
@@ -201,7 +201,7 @@ impl ChannelNav {
           .on_click(cx.listener(move |this, _, window, cx| this.state.update(cx, |s, cx| s.open_channel(id, window, cx))))
       })
       // Voice channels can't be joined yet: no pointer, no hover, just a hint.
-      .when(voice, |this| this.tooltip(tooltip("Voice channels aren't supported yet")))
+      .when(voice, |this| this.tooltip(tooltip("voice channels aren't supported yet")))
       .child(icon.size(px(16.)).text_color(tokens::TEXT_TERTIARY))
       .child(
         div()

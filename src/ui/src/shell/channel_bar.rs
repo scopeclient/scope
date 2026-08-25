@@ -72,7 +72,7 @@ impl Render for ChannelBar {
       .text_color(tokens::ICON_SECONDARY)
       .hover(|style| style.text_color(tokens::ICON_HOVER))
       .active(|style| style.opacity(0.85))
-      .tooltip(tooltip(if state.show_channel_nav { "Hide channels" } else { "Show channels" }))
+      .tooltip(tooltip(if state.show_channel_nav { "hide channels" } else { "show channels" }))
       .child(
         div()
           .size(px(6.))
@@ -125,16 +125,16 @@ impl Render for ChannelBar {
     let center = h_flex().absolute().inset_0().items_center().justify_center().children(breadcrumb);
 
     // Right: four 18px icons, 12px apart, 11px from the edge; unread dot on the pin.
-    let pin = action_button("pinned-messages", Icon::new(ScopeIcon::Pin).size(ACTION_ICON), "Pinned messages", None)
+    let pin = action_button("pinned-messages", Icon::new(ScopeIcon::Pin).size(ACTION_ICON), "pinned messages", None)
       .child(div().absolute().top_0().right_0().size(px(4.)).rounded_full().bg(tokens::BORDER_BRAND));
 
     let members = action_button(
       "toggle-member-list",
       Icon::new(ScopeIcon::Member).w(px(10.)).h(px(12.5)),
       if state.show_member_list {
-        "Hide member list"
+        "hide member list"
       } else {
-        "Show member list"
+        "show member list"
       },
       state.show_member_list.then_some(tokens::ICON_SELECTED),
     )
@@ -149,14 +149,14 @@ impl Render for ChannelBar {
       .child(action_button(
         "open-popout",
         Icon::new(ScopeIcon::ArrowOut).size(ACTION_ICON),
-        "Open in popout",
+        "open in popout",
         None,
       ))
       .child(pin)
       .child(action_button(
         "search",
         Icon::new(ScopeIcon::SearchBold).size(ACTION_ICON),
-        "Search",
+        "search",
         None,
       ))
       .child(members);

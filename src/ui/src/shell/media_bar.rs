@@ -50,7 +50,7 @@ fn play_pause_button(pause: bool) -> gpui::Stateful<gpui::Div> {
     .items_center()
     .justify_center()
     .cursor_pointer()
-    .tooltip(tooltip(if pause { "Pause" } else { "Play" }))
+    .tooltip(tooltip(if pause { "pause" } else { "play" }))
     .child(glyph)
     .on_click(|_, _, cx| MediaPlayer::toggle(cx))
 }
@@ -123,7 +123,7 @@ impl Render for MediaBar {
       .children(subtitle.map(|(text, color)| div().min_w_0().truncate().text_size(tokens::TYPE_S).text_color(color).child(text)));
 
     let time = div().flex_shrink_0().text_size(tokens::TYPE_S).text_color(tokens::TEXT_SECONDARY).child(match status {
-      PlaybackStatus::Loading => "Loading…".to_owned(),
+      PlaybackStatus::Loading => "loading…".to_owned(),
       _ => format_progress(position, duration),
     });
 
@@ -145,11 +145,11 @@ impl Render for MediaBar {
         "media-mute",
         "icons/scope/channelnav-volume.svg",
         16.,
-        if muted { "Unmute" } else { "Mute" },
+        if muted { "unmute" } else { "mute" },
         muted,
         |_, _, cx| MediaPlayer::toggle_mute(cx),
       ))
-      .child(icon_button("media-stop", "icons/scope/close.svg", 10., "Stop", false, |_, _, cx| {
+      .child(icon_button("media-stop", "icons/scope/close.svg", 10., "stop", false, |_, _, cx| {
         MediaPlayer::stop(cx)
       }))
       .into_any_element()

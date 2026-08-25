@@ -2,7 +2,7 @@
 //!
 //! Mirrors the Figma "Scope Login" window (458x503): a dark card with a pink
 //! glow along the top, the Scope mark, one masked token field and a
-//! "Sign In" button. Coordinates below are the Figma frame coordinates.
+//! "sign in" button. Coordinates below are the Figma frame coordinates.
 
 use gpui::{
   App, BoxShadow, ClickEvent, Context, Entity, Focusable as _, FontWeight, Hsla, IntoElement, ParentElement, Render, SharedString, Styled, Window,
@@ -46,7 +46,7 @@ impl Login {
   pub fn new(state: Entity<AppState>, window: &mut Window, cx: &mut Context<Self>) -> Self {
     cx.observe(&state, |_, _, cx| cx.notify()).detach();
 
-    let token = cx.new(|cx| InputState::new(window, cx).placeholder("Paste your token").masked(true));
+    let token = cx.new(|cx| InputState::new(window, cx).placeholder("paste your token").masked(true));
 
     cx.subscribe(&token, |this, _, event: &InputEvent, cx| match event {
       InputEvent::PressEnter { .. } => this.submit(cx),
@@ -110,8 +110,8 @@ impl Render for Login {
       .child(footer(
         connecting,
         match self.state.read(cx).connecting_as.as_deref() {
-          Some(name) => format!("Connecting as {name}…").into(),
-          None => SharedString::new_static("Connecting…"),
+          Some(name) => format!("connecting as {name}…").into(),
+          None => SharedString::new_static("connecting…"),
         },
         cx.listener(|this, _, _, cx| this.submit(cx)),
       ));
@@ -159,7 +159,7 @@ impl Login {
           .text_size(tokens::TYPE_M)
           .font_weight(FontWeight::MEDIUM)
           .text_color(if focused { tokens::TEXT_SECONDARY } else { tokens::TEXT_TERTIARY })
-          .child("Your Discord token"),
+          .child("your discord token"),
       )
       .child(field)
       .child(self.kind_toggle(cx))
@@ -171,8 +171,8 @@ impl Login {
   /// Bot / user token switch under the field, with a one-line hint.
   fn kind_toggle(&self, cx: &mut Context<Self>) -> impl IntoElement {
     let hint = match self.kind {
-      TokenKind::Bot => "Bot tokens need the Presence, Server Members and Message Content intents enabled in the Developer Portal.",
-      TokenKind::User => "User tokens use the unofficial client path. Use a throwaway account.",
+      TokenKind::Bot => "bot tokens need the presence, server members and message content intents enabled in the developer portal",
+      TokenKind::User => "user tokens use the unofficial client path. use a throwaway account",
     };
 
     v_flex()
@@ -189,13 +189,13 @@ impl Login {
           .border_color(tokens::BORDER)
           .child(kind_pill(
             "kind-bot",
-            "Bot token",
+            "bot token",
             self.kind == TokenKind::Bot,
             cx.listener(|this, _, _, cx| this.set_kind(TokenKind::Bot, cx)),
           ))
           .child(kind_pill(
             "kind-user",
-            "User token",
+            "user token",
             self.kind == TokenKind::User,
             cx.listener(|this, _, _, cx| this.set_kind(TokenKind::User, cx)),
           )),
@@ -263,7 +263,7 @@ fn glow_lobe(center: gpui::Point<gpui::Pixels>, radius: f32, color: Hsla) -> imp
     .text_color(color)
 }
 
-/// 16px crosshair mark + "SCOPE S1" at (47,45).
+/// 16px crosshair mark + "scope s1" at (47,45).
 fn logo_row() -> impl IntoElement {
   h_flex()
     .absolute()
@@ -273,10 +273,10 @@ fn logo_row() -> impl IntoElement {
     .items_center()
     .gap(px(4.))
     .child(Icon::empty().path("icons/scope/login-mark.svg").size(px(16.)).text_color(tokens::BRAND))
-    .child(div().text_size(tokens::TYPE_S).font_weight(FontWeight::BOLD).text_color(tokens::TEXT_TERTIARY).child("SCOPE S1"))
+    .child(div().text_size(tokens::TYPE_S).font_weight(FontWeight::BOLD).text_color(tokens::TEXT_TERTIARY).child("scope s1"))
 }
 
-/// "Login to Scope", 36 Bold, glyphs spanning y 90..122.
+/// "login to scope", 36 Bold, glyphs spanning y 90..122.
 fn heading() -> impl IntoElement {
   div()
     .absolute()
@@ -287,7 +287,7 @@ fn heading() -> impl IntoElement {
     .font_weight(FontWeight::BOLD)
     .text_color(tokens::TEXT)
     .whitespace_nowrap()
-    .child("Login to Scope")
+    .child("login to scope")
 }
 
 /// "Not a member? Get Scope" left, "Sign In ->" button right, at (47,424) 363x36.
@@ -305,7 +305,7 @@ fn footer(connecting: bool, connecting_label: SharedString, on_click: impl Fn(&C
         .gap(px(4.))
         .text_size(tokens::TYPE_M)
         .font_weight(FontWeight::MEDIUM)
-        .child(div().text_color(tokens::TEXT_TERTIARY).child("Not a member?"))
+        .child(div().text_color(tokens::TEXT_TERTIARY).child("not a member?"))
         .child(
           div()
             .id("get-scope")
@@ -314,7 +314,7 @@ fn footer(connecting: bool, connecting_label: SharedString, on_click: impl Fn(&C
             .hover(|this| this.text_color(tokens::BRAND_HOVER).underline())
             .active(|this| this.text_color(tokens::BRAND_ACTIVE))
             .on_click(|_, _, cx| cx.open_url("https://www.scopeclient.com/"))
-            .child("Get Scope"),
+            .child("get scope"),
         ),
     )
     .child(sign_in_button(connecting, connecting_label, on_click))
@@ -347,7 +347,7 @@ fn sign_in_button(
         .hover(|this| this.bg(tokens::BRAND))
         .active(|this| this.bg(tokens::PINK_950))
         .on_click(on_click)
-        .child("Sign In")
+        .child("sign in")
         .child(Icon::empty().path("icons/scope/login-arrow.svg").w(px(11.)).h(px(10.)).text_color(WHITE))
     })
 }

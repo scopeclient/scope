@@ -81,7 +81,7 @@ async fn main() {
       window_bounds: Some(WindowBounds::Windowed(Bounds::centered(None, size(px(1453.), px(1024.)), cx))),
       titlebar: Some(TitlebarOptions {
         appears_transparent: true,
-        title: Some(SharedString::new_static("Scope")),
+        title: Some(SharedString::new_static("scope")),
         traffic_light_position: Some(point(px(12.), px(14.))),
       }),
       ..Default::default()

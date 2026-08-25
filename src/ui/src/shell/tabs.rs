@@ -68,7 +68,7 @@ pub fn server_tile(state: &AppState, guild: Option<Id>, icon_url: Option<&str>, 
   match icon_url {
     Some(url) => tile.child(img(url.to_string()).size_full().object_fit(ObjectFit::Cover)),
     None => {
-      let initial: String = fallback.trim_start_matches('#').chars().next().map(|c| c.to_uppercase().collect()).unwrap_or_default();
+      let initial: String = fallback.trim_start_matches('#').chars().next().map(|c| c.to_lowercase().collect()).unwrap_or_default();
       tile.flex().items_center().justify_center().text_size(px(10.)).font_weight(FontWeight::BOLD).text_color(tokens::TEXT_SECONDARY).child(initial)
     }
   }
@@ -191,7 +191,7 @@ impl Render for TabsBar {
               .text_color(tokens::ICON_SECONDARY)
               .hover(|style| style.bg(tokens::BG_FILL).text_color(tokens::ICON_HOVER))
               .active(|style| style.opacity(0.85))
-              .tooltip(tooltip("Close tab"))
+              .tooltip(tooltip("close tab"))
               .child(Icon::new(ScopeIcon::Close).size(px(8.)))
               .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
               .on_click(cx.listener(move |this, _, _, cx| this.state.update(cx, |s, cx| s.close_tab(index, cx)))),
@@ -221,7 +221,7 @@ impl Render for TabsBar {
         tokens::ICON_SECONDARY,
         tokens::ICON_SECONDARY_HOVER,
         back,
-        "Back",
+        "back",
       ))
       .child(glyph_button(
         "nav-forward",
@@ -229,7 +229,7 @@ impl Render for TabsBar {
         tokens::ICON_SECONDARY,
         tokens::ICON_SECONDARY_HOVER,
         forward,
-        "Forward",
+        "forward",
       ));
 
     // "+" sits 10px after the last tab (hit box is 4px wider than the glyph per side).
@@ -239,7 +239,7 @@ impl Render for TabsBar {
       tokens::BORDER_TERTIARY,
       tokens::ICON_SECONDARY,
       Icon::new(ScopeIcon::Plus).size(px(12.)),
-      "New tab",
+      "new tab",
     ));
 
     let strip = h_flex().h_full().flex_1().min_w_0().overflow_hidden().items_center().children(tabs).child(new_tab);
@@ -256,7 +256,7 @@ impl Render for TabsBar {
         px(24.),
         WindowControlArea::Min,
         Icon::new(ScopeIcon::WindowMinimize).w(px(12.)).h(px(3.)),
-        "Minimize",
+        "minimize",
         |window| window.minimize_window(),
       ))
       .child(window_control(
@@ -264,7 +264,7 @@ impl Render for TabsBar {
         px(23.),
         WindowControlArea::Close,
         Icon::new(ScopeIcon::WindowClose).w(px(11.)).h(px(10.)),
-        "Close",
+        "close",
         |window| window.remove_window(),
       ));
 

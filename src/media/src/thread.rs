@@ -180,7 +180,7 @@ fn report(shared: &Arc<Mutex<Shared>>, generation: u64, fill: impl FnOnce(&mut S
 /// nicely instead of leaking decoder jargon.
 fn friendly_decode_error(error: &DecoderError) -> String {
   match error {
-    DecoderError::UnrecognizedFormat | DecoderError::DecodeError(_) => "This format can't be played yet".into(),
-    other => format!("Playback failed: {other}"),
+    DecoderError::UnrecognizedFormat | DecoderError::DecodeError(_) => "this format can't be played yet".into(),
+    other => format!("playback failed: {other}"),
   }
 }

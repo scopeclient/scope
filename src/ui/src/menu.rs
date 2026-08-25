@@ -5,12 +5,12 @@ use crate::actions;
 pub fn app_menus() -> Vec<Menu> {
   vec![
     Menu {
-      name: "Scope".into(),
-      items: vec![MenuItem::action("Quit", actions::Quit)],
+      name: "scope".into(),
+      items: vec![MenuItem::action("quit", actions::Quit)],
     },
     Menu {
-      name: "Window".into(),
-      items: vec![MenuItem::action("Hide", actions::Hide)],
+      name: "window".into(),
+      items: vec![MenuItem::action("hide", actions::Hide)],
     },
   ]
 }

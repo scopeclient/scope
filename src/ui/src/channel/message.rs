@@ -81,12 +81,12 @@ pub fn format_timestamp(timestamp: DateTime<Utc>) -> String {
   let local = timestamp.with_timezone(&Local);
   let today = Local::now().date_naive();
   let date = local.date_naive();
-  let time = local.format("%-I:%M %p");
+  let time = local.format("%-I:%M %P");
 
   if date == today {
-    format!("Today at {time}")
+    format!("today at {time}")
   } else if date.succ_opt() == Some(today) {
-    format!("Yesterday at {time}")
+    format!("yesterday at {time}")
   } else {
     local.format("%d/%m/%Y %H:%M").to_string()
   }

@@ -71,15 +71,15 @@ impl Render for MainNav {
     let nav = v_flex()
       .mt(px(12.))
       .w_full()
-      .child(nav_row(0, Icon::new(ScopeIcon::SearchBold).size(px(18.)), "Find", 0, "F"))
-      .child(nav_row(1, icon(ICON_TRAY).size(px(14.)), "Messages", messages_badge, "I"))
-      .child(nav_row(2, icon(ICON_BELL).size(px(16.)), "Notifications", notifications_badge, "N"))
-      .child(nav_row(3, icon(ICON_COLUMNS).size(px(16.)), "Columns", 0, "C"))
-      .child(nav_row(4, icon(ICON_COMPASS).size(px(16.)), "Explore", 0, "E"));
+      .child(nav_row(0, Icon::new(ScopeIcon::SearchBold).size(px(18.)), "find", 0, "f"))
+      .child(nav_row(1, icon(ICON_TRAY).size(px(14.)), "messages", messages_badge, "i"))
+      .child(nav_row(2, icon(ICON_BELL).size(px(16.)), "notifications", notifications_badge, "n"))
+      .child(nav_row(3, icon(ICON_COLUMNS).size(px(16.)), "columns", 0, "c"))
+      .child(nav_row(4, icon(ICON_COMPASS).size(px(16.)), "explore", 0, "e"));
 
     // Favourites are not modelled yet: demo mode reproduces the mockup's
     // sample folder ("member importants" -> three `#member-important` rows).
-    let mut favourites = v_flex().mt(px(12.)).w_full().gap(px(ROW_GAP)).child(section_row(0, icon(ICON_STAR), "Channel Folders"));
+    let mut favourites = v_flex().mt(px(12.)).w_full().gap(px(ROW_GAP)).child(section_row(0, icon(ICON_STAR), "channel folders"));
     if demo {
       favourites =
         favourites.child(folder_row(0, "member importants")).children([0usize, 1, 4].into_iter().enumerate().map(|(index, guild_index)| {
@@ -89,7 +89,7 @@ impl Render for MainNav {
         }));
     }
 
-    let mut servers = v_flex().mt(px(16.)).w_full().gap(px(ROW_GAP)).child(section_row(1, icon(ICON_HAMBURGER), "All servers"));
+    let mut servers = v_flex().mt(px(16.)).w_full().gap(px(ROW_GAP)).child(section_row(1, icon(ICON_HAMBURGER), "all servers"));
     if demo {
       servers = servers.child(folder_row(1, "bots"));
     }
@@ -143,15 +143,15 @@ fn ellipsis(element: Div) -> Div {
 }
 
 fn initial(name: &str) -> String {
-  name.chars().find(|c| c.is_alphanumeric()).map(|c| c.to_uppercase().to_string()).unwrap_or_default()
+  name.chars().find(|c| c.is_alphanumeric()).map(|c| c.to_lowercase().to_string()).unwrap_or_default()
 }
 
 fn presence_label(presence: Presence) -> &'static str {
   match presence {
-    Presence::Online => "Online",
-    Presence::Idle => "Idle",
-    Presence::DoNotDisturb => "Do Not Disturb",
-    Presence::Offline => "Offline",
+    Presence::Online => "online",
+    Presence::Idle => "idle",
+    Presence::DoNotDisturb => "do not disturb",
+    Presence::Offline => "offline",
   }
 }
 
@@ -205,7 +205,7 @@ fn nav_row(index: usize, glyph: Icon, label: &'static str, badge: u32, key: &'st
     .cursor_pointer()
     .hover(|this| this.bg(tokens::BG_SURFACE_SECONDARY))
     .active(|this| this.bg(tokens::BG_SURFACE))
-    .tooltip(tooltip("Coming soon"))
+    .tooltip(tooltip("coming soon"))
     .child(div().ml(px(17.)).size(px(18.)).flex_shrink_0().flex().items_center().justify_center().child(glyph.text_color(tokens::ICON)))
     .child(text(tokens::TYPE_M, FontWeight::MEDIUM, tokens::TEXT_SECONDARY).ml(px(13.)).child(label))
     .when(badge > 0, |this| {
@@ -229,7 +229,7 @@ fn disclosure() -> Icon {
   Icon::new(ScopeIcon::TriangleUp).size(px(6.)).rotate(radians(PI)).text_color(tokens::ICON_SECONDARY)
 }
 
-/// Section header ("Channel Folders", "All servers"): chevron x=20, icon x=32,
+/// Section header ("channel folders", "all servers"): chevron x=20, icon x=32,
 /// label x=56, "+" right-aligned so its glyph keeps a 17px margin.
 fn section_row(index: usize, glyph: Icon, label: &'static str) -> impl IntoElement {
   h_flex()
@@ -254,7 +254,7 @@ fn section_row(index: usize, glyph: Icon, label: &'static str) -> impl IntoEleme
         .text_color(tokens::ICON_SECONDARY)
         .hover(|this| this.bg(tokens::BG_FILL).text_color(tokens::ICON_HOVER))
         .active(|this| this.opacity(0.85))
-        .tooltip(tooltip("Coming soon"))
+        .tooltip(tooltip("coming soon"))
         .child(icon(ICON_PLUS).size(px(16.))),
     )
 }
@@ -367,8 +367,8 @@ fn voice_card(guild: Option<&GuildInfo>) -> impl IntoElement {
     .w_full()
     .items_center()
     .bg(tokens::BG_SECONDARY)
-    .child(voice_button("voice-mic", icon(ICON_MIC), tokens::ICON, tokens::ICON_HOVER, "Mute").ml(px(8.)))
-    .child(voice_button("voice-deafen", icon(ICON_HEADPHONES), tokens::ICON, tokens::ICON_HOVER, "Deafen").ml(px(8.)))
+    .child(voice_button("voice-mic", icon(ICON_MIC), tokens::ICON, tokens::ICON_HOVER, "mute").ml(px(8.)))
+    .child(voice_button("voice-deafen", icon(ICON_HEADPHONES), tokens::ICON, tokens::ICON_HOVER, "deafen").ml(px(8.)))
     .child(div().flex_1())
     .child(text(tokens::TYPE_M, FontWeight::MEDIUM, tokens::TEXT_TERTIARY).child("2:40"))
     .child(
@@ -377,7 +377,7 @@ fn voice_card(guild: Option<&GuildInfo>) -> impl IntoElement {
         icon(ICON_PHONE_BLOCK),
         tokens::ICON_DANGER,
         tokens::ICON_DANGER,
-        "Disconnect",
+        "disconnect",
       )
       .ml(px(10.))
       .mr(px(11.)),

@@ -70,12 +70,12 @@ impl std::fmt::Display for ConnectError {
       ConnectError::DisallowedIntents => {
         write!(
           f,
-          "This bot's privileged intents are not enabled. Turn on Presence, Server Members and Message Content in the Discord Developer Portal."
+          "this bot's privileged intents are not enabled. turn on presence, server members and message content in the discord developer portal"
         )
       }
-      ConnectError::InvalidToken => write!(f, "Discord rejected the token."),
-      ConnectError::Build(e) => write!(f, "could not create the Discord client: {e}"),
-      ConnectError::Gateway(e) => write!(f, "Discord connection failed: {e}"),
+      ConnectError::InvalidToken => write!(f, "discord rejected the token"),
+      ConnectError::Build(e) => write!(f, "could not create the discord client: {e}"),
+      ConnectError::Gateway(e) => write!(f, "discord connection failed: {e}"),
     }
   }
 }
@@ -223,7 +223,7 @@ impl DiscordClient {
         Err(error.unwrap_or_else(|| ConnectError::Gateway("the connection closed before it became ready".into())))
       }
       Err(_) => Err(ConnectError::Gateway(format!(
-        "Discord did not become ready within {CONNECT_TIMEOUT:?}. Check the token and the bot's intents."
+        "discord did not become ready within {CONNECT_TIMEOUT:?}. check the token and the bot's intents."
       ))),
     }
   }

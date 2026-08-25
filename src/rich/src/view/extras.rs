@@ -92,7 +92,7 @@ pub fn render_reply(reply: &ReplyRef, _window: &mut Window, _cx: &mut Context<Ri
   let row = div().h(px(16.)).min_w_0().flex().flex_row().items_center().gap(px(4.)).text_size(tokens::TYPE_S).line_height(px(16.)).child(connector);
 
   if reply.deleted {
-    return row.child(div().min_w_0().truncate().italic().text_color(tokens::TEXT_TERTIARY).child("Original message was deleted")).into_any_element();
+    return row.child(div().min_w_0().truncate().italic().text_color(tokens::TEXT_TERTIARY).child("original message was deleted")).into_any_element();
   }
 
   let avatar: AnyElement = match &reply.author_avatar {
@@ -126,22 +126,22 @@ pub fn render_reply(reply: &ReplyRef, _window: &mut Window, _cx: &mut Context<Ri
 /// rendered by the row header, so the text starts with the verb.
 pub fn render_system_notice(kind: &SystemKind, _rich: &RichMessage, _window: &mut Window, _cx: &mut Context<RichContentView>) -> AnyElement {
   let (path, color, text): (&'static str, Hsla, String) = match kind {
-    SystemKind::MemberJoin => ("icons/arrow-right.svg", tokens::ICON_SUCCESS, "joined the server.".into()),
-    SystemKind::PinsAdd => ("icons/scope/pin.svg", tokens::ICON, "pinned a message to this channel.".into()),
+    SystemKind::MemberJoin => ("icons/arrow-right.svg", tokens::ICON_SUCCESS, "joined the server".into()),
+    SystemKind::PinsAdd => ("icons/scope/pin.svg", tokens::ICON, "pinned a message to this channel".into()),
     SystemKind::Boost { tier } => {
       let text = match tier {
-        Some(tier) => format!("just boosted the server! Server has achieved Level {tier}!"),
+        Some(tier) => format!("just boosted the server! server has achieved level {tier}!"),
         None => "just boosted the server!".into(),
       };
       ("icons/scope/rich-sparkles.svg", tokens::ICON_BRAND, text)
     }
     SystemKind::ThreadCreated { name } => ("icons/scope/rich-message-square.svg", tokens::ICON, format!("started a thread: {name}")),
-    SystemKind::ChannelFollowAdd => ("icons/arrow-right.svg", tokens::ICON, "added a news channel.".into()),
+    SystemKind::ChannelFollowAdd => ("icons/arrow-right.svg", tokens::ICON, "added a news channel".into()),
     SystemKind::GroupRecipientAdd => ("icons/arrow-right.svg", tokens::ICON_SUCCESS, "added a recipient to the group.".into()),
     SystemKind::GroupRecipientRemove => ("icons/arrow-left.svg", tokens::ICON_DANGER, "removed a recipient from the group.".into()),
     SystemKind::GroupNameUpdate => ("icons/scope/rich-pencil.svg", tokens::ICON, "changed the group name.".into()),
     SystemKind::GroupIconUpdate => ("icons/scope/rich-pencil.svg", tokens::ICON, "changed the group icon.".into()),
-    SystemKind::Call => ("icons/scope/rich-phone.svg", tokens::ICON, "started a call.".into()),
+    SystemKind::Call => ("icons/scope/rich-phone.svg", tokens::ICON, "started a call".into()),
     SystemKind::Other(text) => ("icons/info.svg", tokens::ICON, text.clone()),
   };
 
@@ -243,9 +243,9 @@ fn format_timestamp(timestamp: DateTime<Utc>) -> String {
   let date = local.date_naive();
 
   if date == today {
-    format!("Today at {}", local.format("%-I:%M %p"))
+    format!("today at {}", local.format("%-I:%M %P"))
   } else if date.succ_opt() == Some(today) {
-    format!("Yesterday at {}", local.format("%-I:%M %p"))
+    format!("yesterday at {}", local.format("%-I:%M %P"))
   } else {
     local.format("%d/%m/%Y").to_string()
   }
@@ -257,7 +257,7 @@ fn time_left(expires: DateTime<Utc>) -> String {
   let secs = (expires - Utc::now()).num_seconds().max(0);
 
   match secs {
-    s if s < 60 => "Less than a minute left".into(),
+    s if s < 60 => "less than a minute left".into(),
     s if s < 3600 => plural(s / 60, "minute"),
     s if s < 86_400 => plural(s / 3600, "hour"),
     s => plural(s / 86_400, "day"),
@@ -288,7 +288,7 @@ fn render_attachment(attachment: &Attachment, revealed: bool, cx: &mut Context<R
   }
 }
 
-/// Box the size of the hidden media with a "SPOILER" pill; click reveals.
+/// Box the size of the hidden media with a "spoiler" pill; click reveals.
 fn spoiler_cover(attachment: &Attachment, cx: &mut Context<RichContentView>) -> AnyElement {
   let (w, h) = fit(attachment.width, attachment.height, MEDIA_MAX_W, MEDIA_MAX_H).unwrap_or((MEDIA_MAX_W, 225.));
   let id = attachment.id;
@@ -314,7 +314,7 @@ fn spoiler_cover(attachment: &Attachment, cx: &mut Context<RichContentView>) -> 
         .line_height(px(16.))
         .font_weight(FontWeight::BOLD)
         .text_color(white())
-        .child("SPOILER"),
+        .child("spoiler"),
     )
     .on_click(cx.listener(move |this, _, _, cx| this.reveal_attachment(id, cx)))
     .into_any_element()
@@ -435,7 +435,7 @@ fn media_click(attachment: &Attachment) -> impl Fn(&ClickEvent, &mut Window, &mu
   let url = attachment.url.clone();
   let title = attachment.filename.clone();
   let subtitle = if attachment.voice.is_some() {
-    "Voice message".to_owned()
+    "voice message".to_owned()
   } else {
     attachment.size_label()
   };
@@ -526,7 +526,7 @@ fn render_audio(attachment: &Attachment, cx: &mut Context<RichContentView>) -> A
           .text_color(tokens::TEXT_LINK)
           .cursor_pointer()
           .hover(|style| style.text_color(tokens::TEXT_LINK_HOVER))
-          .child("Open")
+          .child("open")
           .on_click(open),
       )
       .into_any_element()
@@ -588,7 +588,7 @@ fn render_voice(attachment: &Attachment, clip: &VoiceClip, cx: &mut Context<Rich
   let played = (snap.fraction * VOICE_BARS as f32).round() as usize;
 
   let time_label = if errored {
-    "Open".to_owned()
+    "open".to_owned()
   } else if snap.current {
     let total = snap.duration.map(|d| d.as_secs_f32()).unwrap_or(clip.duration_secs);
     format_duration((total - snap.position.as_secs_f32()).max(0.))
@@ -895,14 +895,14 @@ fn render_poll(poll: &Poll) -> AnyElement {
   let total = poll.total_votes.max(poll.answers.iter().map(|a| a.votes).sum());
   let closed = poll.finalized || poll.expires_at.is_some_and(|t| t <= Utc::now());
   let hint = if poll.allow_multiselect {
-    "Select one or more answers"
+    "select one or more answers"
   } else {
-    "Select one answer"
+    "select one answer"
   };
 
   let votes = if total == 1 { "1 vote".to_owned() } else { format!("{total} votes") };
   let status = if closed {
-    Some("Poll closed".to_owned())
+    Some("poll closed".to_owned())
   } else {
     poll.expires_at.map(time_left)
   };
@@ -1046,7 +1046,7 @@ fn render_component(component: &Component, id: usize) -> Option<AnyElement> {
             .text_size(tokens::TYPE_M)
             .line_height(px(18.))
             .text_color(tokens::TEXT_SECONDARY)
-            .child(placeholder.clone().unwrap_or_else(|| "Make a selection".into())),
+            .child(placeholder.clone().unwrap_or_else(|| "make a selection".into())),
         )
         .child(icon("icons/chevron-down.svg", 16., tokens::ICON))
         .into_any_element(),

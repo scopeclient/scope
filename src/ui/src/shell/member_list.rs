@@ -16,7 +16,7 @@ use scope_chat::nav::{MemberInfo, Presence};
 use crate::{icons::ScopeIcon, shell::MEMBER_LIST_WIDTH, state::AppState, theme::tokens};
 
 /// Group label for members without a hoisted role.
-const DEFAULT_GROUP: &str = "MEMBERS";
+const DEFAULT_GROUP: &str = "members";
 
 const ROW_HEIGHT: f32 = 38.;
 const HEADER_HEIGHT: f32 = 22.;
@@ -157,7 +157,7 @@ fn group_header(
         .justify_center()
         .child(Icon::new(ScopeIcon::TriangleUp).size(px(6.)).text_color(tokens::ICON_SECONDARY).rotate(radians(angle))),
     )
-    .child(div().ml(px(8.)).child(name.to_uppercase()))
+    .child(div().ml(px(8.)).child(name.to_lowercase()))
     .child(div().ml(px(8.)).text_color(tokens::TEXT_SECONDARY).child(count.to_string()))
 }
 
@@ -211,7 +211,7 @@ fn member_row(index: usize, member: &MemberInfo) -> impl IntoElement {
 
 /// 28px avatar with the presence dot hanging off its bottom-right.
 fn avatar(member: &MemberInfo) -> impl IntoElement {
-  let initial: String = member.display_name.chars().next().map(|c| c.to_uppercase().collect()).unwrap_or_default();
+  let initial: String = member.display_name.chars().next().map(|c| c.to_lowercase().collect()).unwrap_or_default();
 
   let picture = match &member.avatar_url {
     Some(url) => img(url.clone()).size_full().rounded_full().object_fit(ObjectFit::Cover).into_any_element(),
