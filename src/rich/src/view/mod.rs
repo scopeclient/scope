@@ -119,7 +119,9 @@ impl Render for RichContentView {
       .on_mouse_down(MouseButton::Left, cx.listener(|this, _, window, cx| this.select(window, cx)))
       .w_full()
       .rounded(tokens::RADIUS_100)
-      .when(selected, |this| this.bg(tokens::BRAND.opacity(0.12)))
+      // Neutral tint: just enough to show what Cmd+C will copy, without
+      // reading as a mention highlight.
+      .when(selected, |this| this.bg(tokens::BG_FILL.opacity(0.25)))
       .child(body)
   }
 }
