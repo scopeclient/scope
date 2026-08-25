@@ -146,7 +146,7 @@ fn group_header(
     // The label inherits the row colour so it brightens on hover; the count
     // keeps its explicit `TEXT_SECONDARY`.
     .text_color(tokens::TEXT_TERTIARY)
-    .hover(|this| this.text_color(tokens::TEXT_SECONDARY))
+    .hover(|this| this.text_color(tokens::TEXT_TERTIARY))
     .active(|this| this.opacity(0.85))
     .on_click(on_click)
     .child(
@@ -158,7 +158,7 @@ fn group_header(
         .child(Icon::new(ScopeIcon::TriangleUp).size(px(6.)).text_color(tokens::ICON_SECONDARY).rotate(radians(angle))),
     )
     .child(div().ml(px(8.)).child(name.to_lowercase()))
-    .child(div().ml(px(8.)).text_color(tokens::TEXT_SECONDARY).child(count.to_string()))
+    .child(div().ml(px(8.)).text_color(tokens::TEXT_TERTIARY).child(count.to_string()))
 }
 
 /// 242x38 member row: avatar at x=13, text column at x=53.
@@ -188,7 +188,7 @@ fn member_row(index: usize, member: &MemberInfo) -> impl IntoElement {
         .text_size(tokens::TYPE_S)
         .line_height(tokens::TYPE_S_LINE)
         .font_weight(FontWeight::MEDIUM)
-        .text_color(tokens::TEXT_SECONDARY)
+        .text_color(tokens::TEXT_TERTIARY)
         .truncate()
         .child(status)
     }));
@@ -199,7 +199,7 @@ fn member_row(index: usize, member: &MemberInfo) -> impl IntoElement {
     .w_full()
     .pl(px(LEFT_PADDING))
     .pr(px(EDGE_PADDING))
-    .gap(px(12.))
+    .gap(px(10.))
     .items_center()
     .cursor_pointer()
     .hover(|this| this.bg(tokens::BG_SURFACE_SECONDARY))
@@ -236,7 +236,7 @@ fn avatar(member: &MemberInfo) -> impl IntoElement {
         .justify_center()
         .text_size(tokens::TYPE_S)
         .font_weight(FontWeight::BOLD)
-        .text_color(tokens::TEXT_SECONDARY)
+        .text_color(tokens::TEXT_TERTIARY)
         .child(picture),
     )
     .child(
