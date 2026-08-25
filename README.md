@@ -64,3 +64,4 @@ See `.env.example`.
 ## Credits
 
 - Emoji graphics: [Twemoji](https://github.com/jdecked/twemoji) (jdecked fork, v17.0.3), licensed [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+- UI typeface: [Inter](https://rsms.me/inter/) v4.1, licensed under the [SIL Open Font License 1.1](https://github.com/rsms/inter/blob/master/LICENSE.txt).

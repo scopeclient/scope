@@ -11,6 +11,7 @@ pub fn init(cx: &mut App) {
   Theme::change(ThemeMode::Dark, None, cx);
 
   let theme = Theme::global_mut(cx);
+  theme.font_family = "Inter".into();
   theme.font_size = TYPE_M;
   theme.radius = RADIUS_150;
   theme.radius_lg = RADIUS_200;

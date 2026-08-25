@@ -44,8 +44,22 @@ impl AssetSource for Assets {
   }
 }
 
+/// Bundle Inter (the design's fallback face) so typography is identical on
+/// every platform instead of whatever the OS ships.
+fn load_fonts(cx: &mut App) {
+  let fonts = ["Regular", "Medium", "SemiBold", "Bold", "ExtraBold"]
+    .iter()
+    .filter_map(|weight| cx.asset_source().load(&format!("fonts/inter/Inter-{weight}.ttf")).ok().flatten())
+    .collect::<Vec<_>>();
+
+  if let Err(error) = cx.text_system().add_fonts(fonts) {
+    log::warn!("could not load the bundled Inter fonts: {error}");
+  }
+}
+
 fn init(cx: &mut App) {
   gpui_component::init(cx);
+  load_fonts(cx);
   scope_media::init(cx);
   theme::init(cx);
 
