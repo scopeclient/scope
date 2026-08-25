@@ -50,6 +50,10 @@ pub enum ActionRowComponent {
     Button(Button),
     SelectMenu(SelectMenu),
     InputText(InputText),
+    /// A component this library does not model (e.g. Discord's components v2:
+    /// section, text display, media gallery, …). Kept so a message using new
+    /// component kinds still deserializes instead of failing the whole request.
+    Unknown(u8),
 }
 
 impl<'de> Deserialize<'de> for ActionRowComponent {
@@ -67,12 +71,8 @@ impl<'de> Deserialize<'de> for ActionRowComponent {
             | ComponentType::RoleSelect
             | ComponentType::MentionableSelect
             | ComponentType::ChannelSelect => from_value(value).map(ActionRowComponent::SelectMenu),
-            ComponentType::ActionRow => {
-                return Err(DeError::custom("Invalid component type ActionRow"))
-            },
-            ComponentType::Unknown(i) => {
-                return Err(DeError::custom(format_args!("Unknown component type {i}")))
-            },
+            ComponentType::ActionRow => Ok(ActionRowComponent::Unknown(1)),
+            ComponentType::Unknown(i) => Ok(ActionRowComponent::Unknown(i)),
         }
         .map_err(DeError::custom)
     }
@@ -83,6 +83,12 @@ impl Serialize for ActionRowComponent {
         match self {
             Self::Button(c) => c.serialize(serializer),
             Self::InputText(c) => c.serialize(serializer),
+            Self::Unknown(kind) => {
+                use serde::ser::SerializeMap;
+                let mut map = serializer.serialize_map(Some(1))?;
+                map.serialize_entry("type", kind)?;
+                map.end()
+            },
             Self::SelectMenu(c) => c.serialize(serializer),
         }
     }
