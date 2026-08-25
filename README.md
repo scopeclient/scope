@@ -3,7 +3,7 @@
 <img width="128px" src="./.github/scope-round-200.png" />
 <h1><b>Scope</b></h1>
 
-The Discord client for power users.
+discord client for power users
 <br>
 <a href="https://www.scopeclient.com/"><strong>scopeclient.com »</strong></a>
 
