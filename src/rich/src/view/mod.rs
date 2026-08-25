@@ -116,10 +116,8 @@ impl Render for RichContentView {
       .key_context(selection::MESSAGE_CONTEXT)
       .on_action(cx.listener(|this, _: &selection::CopyMessage, _window, cx| this.copy(cx)))
       .on_action(cx.listener(|this, _: &selection::SelectMessage, window, cx| this.select(window, cx)))
-      
       .w_full()
       .rounded(tokens::RADIUS_100)
-
       .child(body)
   }
 }

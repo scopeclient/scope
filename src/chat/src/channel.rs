@@ -1,4 +1,4 @@
-use std::{fmt::Debug, sync::Arc};
+use std::{fmt::Debug, hash::Hash, sync::Arc};
 
 use scope_rich::Emoji;
 use tokio::sync::broadcast;
@@ -19,7 +19,7 @@ pub enum ChannelEvent<M: AsyncListItem> {
 
 pub trait Channel: AsyncList<Content = Self::Message> + Send + Sync + Clone {
   type Message: Message<Identifier = Self::Identifier> + AsyncListItem<Identifier = Self::Identifier>;
-  type Identifier: Sized + Copy + Clone + Debug + Eq + PartialEq + Send;
+  type Identifier: Sized + Copy + Clone + Debug + Eq + PartialEq + Send + Hash;
 
   fn get_receiver(&self) -> broadcast::Receiver<ChannelEvent<Self::Message>>;
 

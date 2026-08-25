@@ -51,6 +51,16 @@ impl<I: AsyncListItem> AsyncListCache<I> {
     self.cache_refs.insert_detached(identifier);
   }
 
+  /// Mark an already-cached item as the oldest that exists (top of history).
+  pub fn mark_top_bound(&mut self, identifier: &I::Identifier) {
+    self.cache_refs.mark_top_bound(identifier);
+  }
+
+  /// Mark an already-cached item as the newest that exists (bottom of history).
+  pub fn mark_bottom_bound(&mut self, identifier: &I::Identifier) {
+    self.cache_refs.mark_bottom_bound(identifier);
+  }
+
   pub fn bounded_at_top_by(&self) -> Option<I::Identifier> {
     self.cache_refs.top_bound()
   }

@@ -48,6 +48,30 @@ impl<I: Clone + Eq + PartialEq> CacheReferences<I> {
     }
   }
 
+  /// Mark the segment containing `identifier` as bounded at the top, if its
+  /// first item is `identifier`.
+  pub fn mark_top_bound(&mut self, identifier: &I) {
+    for (id, segment) in self.dense_segments.iter_mut() {
+      if segment.item_references.first() == Some(identifier) {
+        segment.is_bounded_at_top = true;
+        self.top_bounded_identifier = Some(*id);
+        return;
+      }
+    }
+  }
+
+  /// Mark the segment containing `identifier` as bounded at the bottom, if its
+  /// last item is `identifier`.
+  pub fn mark_bottom_bound(&mut self, identifier: &I) {
+    for (id, segment) in self.dense_segments.iter_mut() {
+      if segment.item_references.last() == Some(identifier) {
+        segment.is_bounded_at_bottom = true;
+        self.bottom_bounded_identifier = Some(*id);
+        return;
+      }
+    }
+  }
+
   pub fn top_bound(&self) -> Option<I> {
     let index = self.top_bounded_identifier?;
     let top_bound = self.dense_segments.get(&index).unwrap();

@@ -166,38 +166,30 @@ impl Channel for DiscordChannel {
   }
 }
 
-const DISCORD_MESSAGE_BATCH_SIZE: u8 = 50;
+/// Discord allows up to 100 per request; bigger pages = fewer requests.
+const DISCORD_MESSAGE_BATCH_SIZE: u8 = 100;
 
 impl AsyncList for DiscordChannel {
-  async fn bounded_at_bottom_by(&self) -> Option<Snowflake> {
-    let lock = self.cache.lock().await;
-    let cache_value = lock.bounded_at_top_by();
+  type Content = DiscordMessage;
 
-    if let Some(v) = cache_value {
+  async fn bounded_at_top_by(&self) -> Option<Snowflake> {
+    self.cache.lock().await.bounded_at_top_by()
+  }
+
+  async fn bounded_at_bottom_by(&self) -> Option<Snowflake> {
+    let cached = self.cache.lock().await.bounded_at_bottom_by();
+
+    if let Some(v) = cached {
       return Some(v);
-    };
+    }
 
     self.client.get_messages(self.channel.id(), GetMessages::new().limit(1)).await.first().map(|v| Snowflake(v.id.get()))
   }
 
-  async fn bounded_at_top_by(&self) -> Option<Snowflake> {
-    let lock = self.cache.lock().await;
-    let cache_value = lock.bounded_at_bottom_by();
-
-    if let Some(v) = cache_value {
-      return Some(v);
-    };
-
-    panic!("Unsupported")
-  }
-
   async fn find(&self, identifier: &Snowflake) -> Option<Self::Content> {
-    let lock = self.cache.lock().await;
-    let cache_value = lock.find(identifier);
+    let cached = self.cache.lock().await.find(identifier);
 
-    drop(lock);
-
-    if let Some(v) = cache_value {
+    if let Some(v) = cached {
       return Some(v);
     }
 
@@ -206,128 +198,146 @@ impl AsyncList for DiscordChannel {
     Some(DiscordMessage::load_serenity(self.client.clone(), self.channel.clone(), Arc::new(result)).await)
   }
 
+  /// Serve `index` from the cache, fetching a full page from Discord on a miss.
+  ///
+  /// Discord returns pages newest → oldest. A SHORT page means that edge of
+  /// history is final; a full page means there is (probably) more.
   async fn get(&self, index: AsyncListIndex<Snowflake>) -> Option<AsyncListResult<Self::Content>> {
-    let permit = self.blocker.acquire().await;
+    let _permit = self.blocker.acquire().await;
     let mut lock = self.cache.lock().await;
-    let cache_value = lock.get(index);
 
-    if let Exists::Yes(v) = cache_value {
-      return Some(v);
-    } else if let Exists::No = cache_value {
-      return None;
+    match lock.get(index) {
+      Exists::Yes(v) => return Some(v),
+      Exists::No => return None,
+      Exists::Unknown => {}
     }
 
-    let mut result: Option<DiscordMessage> = None;
-    let mut is_top = false;
-    let mut is_bottom = false;
+    let page_of = |builder: GetMessages| self.client.get_messages(self.channel.id(), builder.limit(DISCORD_MESSAGE_BATCH_SIZE));
 
     match index {
-      AsyncListIndex::RelativeToTop(_) => todo!("Unsupported"),
-      AsyncListIndex::RelativeToBottom(index) => {
-        if index != 0 {
-          unimplemented!()
+      AsyncListIndex::RelativeToTop(_) => {
+        log::warn!("paging relative to the top of history is not supported");
+        None
+      }
+
+      AsyncListIndex::RelativeToBottom(offset) => {
+        if offset != 0 {
+          log::warn!("paging relative to the bottom only supports offset 0");
+          return None;
         }
 
-        let v = self.client.get_messages(self.channel.id(), GetMessages::new().limit(DISCORD_MESSAGE_BATCH_SIZE)).await;
+        // Newest page. The newest message is the bottom bound by definition;
+        // a short page also makes the oldest one the top bound.
+        let page = page_of(GetMessages::new()).await;
+        let exhausted = page.len() < DISCORD_MESSAGE_BATCH_SIZE as usize;
+        let count = page.len();
 
-        let is_end = v.len() == DISCORD_MESSAGE_BATCH_SIZE as usize;
-        is_bottom = true;
-        is_top = v.len() == 1;
+        let mut newest = None;
+        let mut previous: Option<Snowflake> = None;
 
-        let mut iter = v.into_iter();
-
-        let v = iter.next();
-
-        if let Some(v) = v {
-          let msg = DiscordMessage::load_serenity(self.client.clone(), self.channel.clone(), Arc::new(v)).await;
-          let mut id = msg.get_list_identifier();
-          lock.append_bottom(msg.clone());
-          result = Some(msg);
-
-          for message in iter {
-            let msg = DiscordMessage::load_serenity(self.client.clone(), self.channel.clone(), Arc::new(message)).await;
-            let nid = msg.get_list_identifier();
-
-            lock.insert(AsyncListIndex::Before(id), msg, false, is_end);
-
-            id = nid;
-          }
-        };
-      }
-      AsyncListIndex::After(message) => {
-        // NEWEST first
-        let v = self
-          .client
-          .get_messages(
-            self.channel.id(),
-            GetMessages::new().after(MessageId::new(message.0)).limit(DISCORD_MESSAGE_BATCH_SIZE),
-          )
-          .await;
-        let mut current_index: Snowflake = message;
-
-        let is_end = v.len() == DISCORD_MESSAGE_BATCH_SIZE as usize;
-        let len = v.len();
-        is_bottom = is_end && v.len() == 1;
-
-        for (message, index) in v.into_iter().rev().zip(0..) {
-          let id = Snowflake(message.id.get());
-
+        for (position, message) in page.into_iter().enumerate() {
           let value = DiscordMessage::load_serenity(self.client.clone(), self.channel.clone(), Arc::new(message)).await;
+          let id = value.get_list_identifier();
+          let is_oldest_of_history = exhausted && position == count - 1;
 
-          if index == 0 {
-            result = Some(value.clone());
+          match previous {
+            None => {
+              // The cache only inserts relative to known items; the newest
+              // message of the first page is appended as the bottom bound.
+              lock.append_bottom(value.clone());
+              if is_oldest_of_history {
+                lock.mark_top_bound(&id);
+              }
+              newest = Some(value);
+            }
+            Some(prev) => lock.insert(AsyncListIndex::Before(prev), value, is_oldest_of_history, false),
           }
 
-          lock.insert(AsyncListIndex::After(current_index), value, false, is_end && index == (len - 1));
-
-          current_index = id;
+          previous = Some(id);
         }
+
+        let newest = newest?;
+        Some(AsyncListResult {
+          content: newest,
+          is_top: exhausted && count == 1,
+          is_bottom: true,
+        })
       }
-      AsyncListIndex::Before(message) => {
-        let v = self
-          .client
-          .get_messages(
-            self.channel.id(),
-            GetMessages::new().before(MessageId::new(message.0)).limit(DISCORD_MESSAGE_BATCH_SIZE),
-          )
-          .await;
-        let mut current_index: Snowflake = message;
 
-        log::debug!("Discord gave us {} messages (out of {})", v.len(), DISCORD_MESSAGE_BATCH_SIZE);
+      AsyncListIndex::Before(anchor) => {
+        // Older history: page is newest → oldest, all older than `anchor`.
+        let page = page_of(GetMessages::new().before(MessageId::new(anchor.0))).await;
+        let exhausted = page.len() < DISCORD_MESSAGE_BATCH_SIZE as usize;
+        let count = page.len();
+        log::debug!("Discord: {count} older messages before {anchor:?} (exhausted: {exhausted})");
 
-        let is_end = v.len() == DISCORD_MESSAGE_BATCH_SIZE as usize;
-        let len = v.len();
-        is_top = is_end && v.len() == 1;
+        let mut first = None;
+        let mut previous = anchor;
 
-        result = None;
-
-        for (message, index) in v.into_iter().zip(0..) {
-          let id = Snowflake(message.id.get());
-
+        for (position, message) in page.into_iter().enumerate() {
           let value = DiscordMessage::load_serenity(self.client.clone(), self.channel.clone(), Arc::new(message)).await;
+          let id = value.get_list_identifier();
+          let is_oldest_of_history = exhausted && position == count - 1;
 
-          if index == 0 {
-            result = Some(value.clone());
+          lock.insert(AsyncListIndex::Before(previous), value.clone(), is_oldest_of_history, false);
+
+          if position == 0 {
+            first = Some(value);
           }
 
-          lock.insert(AsyncListIndex::Before(current_index), value, false, is_end && index == len);
-
-          current_index = id;
+          previous = id;
         }
+
+        if count == 0 {
+          // Nothing older: `anchor` itself is the top of history.
+          lock.mark_top_bound(&anchor);
+          return None;
+        }
+
+        Some(AsyncListResult {
+          content: first?,
+          is_top: exhausted && count == 1,
+          is_bottom: false,
+        })
       }
-    };
 
-    drop(permit);
-    drop(lock);
+      AsyncListIndex::After(anchor) => {
+        // Newer messages: request is oldest-bounded; page still newest → oldest,
+        // so walk it in reverse to chain upwards from `anchor`.
+        let page = page_of(GetMessages::new().after(MessageId::new(anchor.0))).await;
+        let exhausted = page.len() < DISCORD_MESSAGE_BATCH_SIZE as usize;
+        let count = page.len();
 
-    result.map(|v| AsyncListResult {
-      content: v,
-      is_top,
-      is_bottom,
-    })
+        let mut first = None;
+        let mut previous = anchor;
+
+        for (position, message) in page.into_iter().rev().enumerate() {
+          let value = DiscordMessage::load_serenity(self.client.clone(), self.channel.clone(), Arc::new(message)).await;
+          let id = value.get_list_identifier();
+          let is_newest_of_history = exhausted && position == count - 1;
+
+          lock.insert(AsyncListIndex::After(previous), value.clone(), false, is_newest_of_history);
+
+          if position == 0 {
+            first = Some(value);
+          }
+
+          previous = id;
+        }
+
+        if count == 0 {
+          lock.mark_bottom_bound(&anchor);
+          return None;
+        }
+
+        Some(AsyncListResult {
+          content: first?,
+          is_top: false,
+          is_bottom: exhausted && count == 1,
+        })
+      }
+    }
   }
-
-  type Content = DiscordMessage;
 }
 
 impl Clone for DiscordChannel {

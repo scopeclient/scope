@@ -1,12 +1,13 @@
-//! Bottom-anchored, lazily paged message list.
+//! Bottom-anchored, batch-paged message list.
 //!
-//! The backend is paged one message at a time into `cache`; every change to
-//! the cache is regrouped into `rows` (message groups plus the chrome between
-//! them: date separators, the "new messages" divider, the start-of-history
-//! note) and a fresh `ListState` is built with the scroll position carried
-//! over in terms of rendered rows.
+//! Messages live in `items`, oldest first. Each edge (top = older history,
+//! bottom = newer) has an explicit [`EdgeState`]; at most one load runs per
+//! edge, and a whole page lands as a single update. Rendering derives `rows`
+//! (groups plus chrome: date separators, the "new messages" divider, the
+//! start-of-history note) from `items` on every change, with the scroll
+//! offset carried over in rendered rows.
 
-use std::{cell::Cell, rc::Rc, sync::Arc};
+use std::{cell::Cell, collections::HashSet, rc::Rc, sync::Arc};
 
 use chrono::{DateTime, Local, NaiveDate, Utc};
 use gpui::{
@@ -26,149 +27,143 @@ use super::{
 };
 use crate::theme::tokens;
 
-/// Horizontal insets of the separator rules; match the message row padding
-/// (avatar at x=17, right edge at 16) without depending on `message.rs`.
+/// Horizontal insets of the separator rules; match the message row padding.
 const ROW_PAD_LEFT: f32 = 17.;
 const ROW_PAD_RIGHT: f32 = 16.;
 const SEPARATOR_HEIGHT: f32 = 28.;
 const SEPARATOR_PAD_Y: f32 = 8.;
-const NEW_DIVIDER_HEIGHT: f32 = 16.;
 const START_GAP: f32 = 24.;
 const PILL_INSET: f32 = 12.;
 
-/// What changed in the cache since the last rebuild, in cache items: `shift`
-/// were inserted at the top, `new_items` appended at the bottom.
+/// Messages fetched when a channel opens.
+const INITIAL_LOAD: usize = 50;
+/// Messages fetched per scroll-up trigger.
+const OLDER_LOAD: usize = 50;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum EdgeState {
+  /// Nothing in flight; a visible edge sentinel may start a load.
+  Idle,
+  Loading,
+  /// History ends here; never fetch this edge again.
+  End,
+}
+
+/// What changed since the last rebuild, in items: `shift` inserted at the
+/// top, `new_items` appended at the bottom.
 #[derive(Clone, Copy, Default)]
-struct ListStateDirtyState {
-  pub new_items: usize,
-  pub shift: usize,
+struct DirtyState {
+  new_items: usize,
+  shift: usize,
 }
 
 #[derive(Clone, Copy, Default)]
 struct BoundFlags {
-  pub before: bool,
-  pub after: bool,
+  before: bool,
+  after: bool,
 }
 
-#[derive(Debug)]
-pub enum Element<T> {
-  /// A fetch is in flight; the token identifies the placeholder so the
-  /// result lands in the right slot even if the cache shifted meanwhile.
-  Unresolved(u64),
-  Resolved(T),
-}
-
-fn next_token() -> u64 {
-  static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
-  NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-}
-
-type Cache<M> = Vec<Element<Option<M>>>;
 type Rows<M> = Rc<Vec<Row<M>>>;
 
-/// One rendered line of the list. Derived from the cache on every rebuild, so
-/// the chrome can never go stale (a separator whose neighbour was deleted
-/// simply is not produced again).
 enum Row<M: Message> {
-  /// The top fetch came back empty: history starts here.
+  /// History starts here ("this is the beginning of the conversation").
   Start,
-  /// A fetch is in flight for this slot.
+  /// An edge load is in flight.
   Loading,
   /// The group below is the first on a new local calendar day.
   DateSeparator(NaiveDate),
   /// Everything below arrived while the user was scrolled up.
   NewDivider,
   Group(MessageGroup<M>),
-  /// The bottom fetch came back empty: nothing newer exists (yet).
-  End,
 }
 
 struct RowBuild<M: Message> {
   rows: Vec<Row<M>>,
-  /// How many rows each cache item contributed, index-aligned with the cache.
+  /// Rows contributed per item, index-aligned with `items`; edge chrome
+  /// (Start/Loading) is accounted to no item.
   rows_per_item: Vec<usize>,
   /// Messages at or below the "new messages" divider.
   unseen: usize,
+  /// Rows before the first item's rows (top chrome).
+  top_chrome: usize,
 }
 
-/// Regroup the cache into rows. `day_of` buckets a message into a calendar
-/// day; consecutive groups on different days get a separator between them.
-/// Separators and the divider always start a new group. Gaps (loading slots,
-/// the history ends) reset the day so no separator is drawn across them.
 fn build_rows<M: Message>(
-  cache: &Cache<M>,
+  items: &[M],
+  top: EdgeState,
+  top_reached: bool,
+  bottom: EdgeState,
   new_divider: Option<&<M as AsyncListItem>::Identifier>,
   day_of: impl Fn(&M) -> Option<NaiveDate>,
 ) -> RowBuild<M> {
   let mut rows: Vec<Row<M>> = Vec::new();
-  let mut rows_per_item = Vec::with_capacity(cache.len());
+
+  if top_reached {
+    rows.push(Row::Start);
+  } else if top == EdgeState::Loading {
+    rows.push(Row::Loading);
+  }
+
+  let top_chrome = rows.len();
+  let mut rows_per_item = Vec::with_capacity(items.len());
   let mut prev_day: Option<NaiveDate> = None;
   let mut unseen = 0;
   let mut past_divider = false;
 
-  for (index, item) in cache.iter().enumerate() {
+  for message in items {
     let before = rows.len();
+    let day = day_of(message);
 
-    match item {
-      Element::Unresolved(_) => {
-        rows.push(Row::Loading);
-        prev_day = None;
+    if let (Some(prev), Some(day)) = (prev_day, day)
+      && prev != day
+    {
+      rows.push(Row::DateSeparator(day));
+    }
+
+    if new_divider.is_some_and(|id| *id == message.get_list_identifier()) {
+      rows.push(Row::NewDivider);
+      past_divider = true;
+    }
+
+    if past_divider {
+      unseen += 1;
+    }
+
+    match rows.last_mut() {
+      Some(Row::Group(group))
+        if group.last().get_author().get_identifier() == message.get_author().get_identifier() && message.should_group(group.last()) =>
+      {
+        group.add(message.clone())
       }
-      Element::Resolved(None) => {
-        rows.push(if index == 0 { Row::Start } else { Row::End });
-        prev_day = None;
-      }
-      Element::Resolved(Some(message)) => {
-        let day = day_of(message);
+      _ => rows.push(Row::Group(MessageGroup::new(message.clone()))),
+    }
 
-        if let (Some(prev), Some(day)) = (prev_day, day)
-          && prev != day
-        {
-          rows.push(Row::DateSeparator(day));
-        }
-
-        if new_divider.is_some_and(|id| *id == message.get_list_identifier()) {
-          rows.push(Row::NewDivider);
-          past_divider = true;
-        }
-
-        if past_divider {
-          unseen += 1;
-        }
-
-        match rows.last_mut() {
-          Some(Row::Group(group))
-            if group.last().get_author().get_identifier() == message.get_author().get_identifier() && message.should_group(group.last()) =>
-          {
-            group.add(message.clone())
-          }
-          _ => rows.push(Row::Group(MessageGroup::new(message.clone()))),
-        }
-
-        if day.is_some() {
-          prev_day = day;
-        }
-      }
+    if day.is_some() {
+      prev_day = day;
     }
 
     rows_per_item.push(rows.len() - before);
   }
 
-  RowBuild { rows, rows_per_item, unseen }
+  if bottom == EdgeState::Loading {
+    rows.push(Row::Loading);
+  }
+
+  RowBuild {
+    rows,
+    rows_per_item,
+    unseen,
+    top_chrome,
+  }
 }
 
-/// Rows contributed by the cache items `dirty` says were inserted at the top
-/// and appended at the bottom, so the carried-over scroll offset can skip
-/// them. A trailing end marker is not part of the appended items (appending
-/// re-pushes it).
-fn carried_rows(rows_per_item: &[usize], has_end_marker: bool, dirty: ListStateDirtyState) -> (usize, usize) {
+/// Rendered rows contributed by the `dirty.shift` items inserted at the top
+/// and the `dirty.new_items` appended at the bottom.
+fn carried_rows(rows_per_item: &[usize], dirty: DirtyState) -> (usize, usize) {
   let len = rows_per_item.len();
-  let top = rows_per_item[..dirty.shift.min(len)].iter().sum();
-
-  let end = len.saturating_sub(has_end_marker as usize);
-  let start = end.saturating_sub(dirty.new_items);
-  let bottom = rows_per_item[start..end].iter().sum();
-
+  let top: usize = rows_per_item[..dirty.shift.min(len)].iter().sum();
+  let start = len.saturating_sub(dirty.new_items);
+  let bottom: usize = rows_per_item[start..].iter().sum();
   (top, bottom)
 }
 
@@ -190,138 +185,139 @@ fn separator_label(day: NaiveDate, today: NaiveDate) -> String {
 fn jump_label(unseen: usize) -> SharedString {
   match unseen {
     0 => "jump to present".into(),
-    1 => "1 new message · Jump to present".into(),
-    n => format!("{n} new messages · Jump to present").into(),
+    1 => "1 new message · jump to present".into(),
+    n => format!("{n} new messages · jump to present").into(),
   }
+}
+
+/// One finished edge load: messages to splice in and whether history ended.
+struct LoadedPage<M> {
+  /// Oldest → newest, ready to splice.
+  messages: Vec<M>,
+  reached_end: bool,
 }
 
 pub struct MessageListComponent<C: Channel + 'static> {
   list: Arc<RwLock<C>>,
-  cache: Entity<Cache<C::Message>>,
   overdraw: Pixels,
+  actions: MessageActions<C::Message>,
 
-  /// Set from inside the list render callback when the top / bottom sentinel
-  /// rows become visible, i.e. when more history should be requested.
+  /// Oldest first.
+  items: Vec<C::Message>,
+  top_state: EdgeState,
+  /// The oldest loaded message is the first that ever existed.
+  top_reached: bool,
+  bottom_state: EdgeState,
+  /// Whether the newest loaded message is the newest that exists. Live
+  /// messages keep this true; it only goes false after jumping into history.
+  bottom_reached: bool,
+  /// Set once the initial load has been kicked off.
+  started: bool,
+
+  /// Edge sentinels flip these from inside the list's render callback.
   bounds_flags: Entity<BoundFlags>,
 
   rows: Rows<C::Message>,
-  actions: MessageActions<C::Message>,
   list_state: Option<ListState>,
-  /// True while the newest message is on screen; rows that grow later (images
-  /// finishing to load) then keep the list pinned to the bottom, like Discord.
+  /// False as soon as the user scrolls away from the bottom (driven by real
+  /// scroll events); while true, growth keeps the view glued to the newest
+  /// message, like Discord.
   pinned_to_bottom: Rc<Cell<bool>>,
-  /// `pinned_to_bottom` as of the last render, to notice the unpinned → pinned
-  /// transition (the moment the user has caught up).
   was_pinned: bool,
-  list_state_dirty: Option<ListStateDirtyState>,
+  /// One-shot: scroll hard to the bottom on the next render.
+  scroll_to_bottom: Cell<bool>,
+  dirty: Option<DirtyState>,
 
-  /// First message that arrived while the user was scrolled up; the "new
-  /// messages" divider is drawn above it until they scroll back down.
+  /// First message that arrived while the user was scrolled up.
   new_divider: Option<<C::Message as AsyncListItem>::Identifier>,
-  /// Messages below the divider, shown on the jump-to-present pill.
   unseen: usize,
 }
 
 impl<C: Channel + 'static> MessageListComponent<C> {
   pub fn create(cx: &mut Context<Self>, list: C, overdraw: Pixels, actions: MessageActions<C::Message>) -> Self {
-    let cache = cx.new(|_| Vec::new());
-
-    cx.observe(&cache, |this, _, cx| {
-      this.rebuild(cx);
-      cx.notify();
-    })
-    .detach();
-
     MessageListComponent {
       list: Arc::new(RwLock::new(list)),
-      cache,
       overdraw,
+      actions,
+      items: Vec::new(),
+      top_state: EdgeState::Idle,
+      top_reached: false,
+      bottom_state: EdgeState::Idle,
+      bottom_reached: false,
+      started: false,
       bounds_flags: cx.new(|_| BoundFlags::default()),
       rows: Rc::new(Vec::new()),
-      actions,
+      list_state: None,
       pinned_to_bottom: Rc::new(Cell::new(true)),
       was_pinned: true,
-      list_state: None,
-      list_state_dirty: None,
+      scroll_to_bottom: Cell::new(false),
+      dirty: None,
       new_divider: None,
       unseen: 0,
     }
   }
 
-  pub fn append_message(&mut self, cx: &mut Context<Self>, message: C::Message) {
-    let replaces_pending =
-      self.cache.read(cx).iter().any(|item| matches!(item, Element::Resolved(Some(existing)) if existing.get_nonce() == message.get_nonce()));
+  fn known_ids(&self) -> HashSet<<C::Message as AsyncListItem>::Identifier> {
+    self.items.iter().map(|m| m.get_list_identifier()).collect()
+  }
 
-    if replaces_pending {
-      self.cache.update(cx, |cache, cx| {
-        if let Some(item) =
-          cache.iter_mut().find(|item| matches!(item, Element::Resolved(Some(existing)) if existing.get_nonce() == message.get_nonce()))
-        {
-          *item = Element::Resolved(Some(message));
-          cx.notify();
-        }
-      });
+  pub fn append_message(&mut self, cx: &mut Context<Self>, message: C::Message) {
+    // A confirmed echo replaces its optimistic bubble, matched by nonce.
+    if let Some(slot) = self.items.iter_mut().find(|existing| existing.get_nonce() == message.get_nonce()) {
+      *slot = message;
+      self.rebuild(cx);
+      cx.notify();
+      return;
+    }
+
+    // Live duplicate of something already paged in.
+    if self.items.iter().any(|m| m.get_list_identifier() == message.get_list_identifier()) {
       return;
     }
 
     if message.is_own() {
       // Sending follows your own message down, like Discord.
       self.pinned_to_bottom.set(true);
+      self.scroll_to_bottom.set(true);
     } else if !self.pinned_to_bottom.get() && self.new_divider.is_none() {
       self.new_divider = Some(message.get_list_identifier());
     }
 
-    self.mark_dirty(ListStateDirtyState { new_items: 1, shift: 0 });
-
-    self.cache.update(cx, |cache, cx| {
-      if let Some(Element::Resolved(None)) = cache.last() {
-        cache.pop();
-      }
-
-      cache.push(Element::Resolved(Some(message)));
-      cache.push(Element::Resolved(None));
-      cx.notify();
-    });
+    self.mark_dirty(DirtyState { new_items: 1, shift: 0 });
+    self.items.push(message);
+    self.rebuild(cx);
+    cx.notify();
   }
 
   /// Replace a message in place (edit, reaction change, …), matched by list id.
   pub fn update_message(&mut self, cx: &mut Context<Self>, message: C::Message) {
     let id = message.get_list_identifier();
 
-    self.cache.update(cx, |cache, cx| {
-      if let Some(slot) = cache.iter_mut().find(|e| matches!(e, Element::Resolved(Some(m)) if m.get_list_identifier() == id)) {
-        *slot = Element::Resolved(Some(message));
-        cx.notify();
-      }
-    });
-  }
-
-  pub fn remove_message(&mut self, cx: &mut Context<Self>, id: <C::Message as AsyncListItem>::Identifier) {
-    let divider_removed = self.new_divider.as_ref() == Some(&id);
-    let mut next_after_divider = None;
-
-    self.cache.update(cx, |cache, cx| {
-      let Some(position) = cache.iter().position(|e| matches!(e, Element::Resolved(Some(m)) if m.get_list_identifier() == id)) else {
-        return;
-      };
-
-      cache.remove(position);
-
-      if divider_removed && let Some(Element::Resolved(Some(next))) = cache.get(position) {
-        next_after_divider = Some(next.get_list_identifier());
-      }
-
+    if let Some(slot) = self.items.iter_mut().find(|m| m.get_list_identifier() == id) {
+      *slot = message;
+      self.rebuild(cx);
       cx.notify();
-    });
-
-    if divider_removed {
-      // The divider moves down to the next unseen message, if any is left.
-      self.new_divider = next_after_divider;
     }
   }
 
-  fn mark_dirty(&mut self, change: ListStateDirtyState) {
-    let dirty = self.list_state_dirty.get_or_insert_default();
+  pub fn remove_message(&mut self, cx: &mut Context<Self>, id: <C::Message as AsyncListItem>::Identifier) {
+    let Some(position) = self.items.iter().position(|m| m.get_list_identifier() == id) else {
+      return;
+    };
+
+    self.items.remove(position);
+
+    if self.new_divider.as_ref() == Some(&id) {
+      // The divider moves down to the next unseen message, if any is left.
+      self.new_divider = self.items.get(position).map(|next| next.get_list_identifier());
+    }
+
+    self.rebuild(cx);
+    cx.notify();
+  }
+
+  fn mark_dirty(&mut self, change: DirtyState) {
+    let dirty = self.dirty.get_or_insert_default();
     dirty.shift += change.shift;
     dirty.new_items += change.new_items;
   }
@@ -334,38 +330,198 @@ impl<C: Channel + 'static> MessageListComponent<C> {
   }
 
   fn jump_to_present(&mut self, cx: &mut Context<Self>) {
-    if let Some(state) = &self.list_state {
-      state.scroll_to(ListOffset {
-        item_ix: state.item_count(),
-        offset_in_item: px(0.),
-      });
-    }
-
     self.pinned_to_bottom.set(true);
+    self.scroll_to_bottom.set(true);
     cx.notify();
   }
 
-  /// Regroup the cache into rows and build a fresh `ListState`, carrying the
-  /// scroll position over from the previous one.
-  fn rebuild(&mut self, cx: &mut Context<Self>) {
-    let dirty = self.list_state_dirty.take().unwrap_or_default();
-    let cache = self.cache.read(cx);
+  /// Newest → older chain: fetch the newest message, then walk `Before` until
+  /// `count` messages or the top of history.
+  fn load_initial(&mut self, cx: &mut Context<Self>) {
+    self.started = true;
+    self.top_state = EdgeState::Loading;
 
-    let build = build_rows(cache, self.new_divider.as_ref(), |m| m.get_timestamp().map(local_day));
-    let has_end_marker = matches!(cache.last(), Some(Element::Resolved(None)));
-    let (shift, added_rows_bottom) = carried_rows(&build.rows_per_item, has_end_marker, dirty);
+    let list = self.list.clone();
+
+    cx.spawn(async move |this, cx| {
+      let (tx, rx) = catty::oneshot();
+
+      tokio::spawn(async move {
+        let guard = list.read().await;
+        let mut collected = Vec::new();
+        let mut reached_end = false;
+
+        match guard.get(AsyncListIndex::RelativeToBottom(0)).await {
+          None => reached_end = true,
+          Some(newest) => {
+            let top = newest.is_top;
+            collected.push(newest.content);
+            reached_end = top;
+
+            while !reached_end && collected.len() < INITIAL_LOAD {
+              let anchor = collected.last().expect("just pushed").get_list_identifier();
+              match guard.get(AsyncListIndex::Before(anchor)).await {
+                None => reached_end = true,
+                Some(older) => {
+                  reached_end = older.is_top;
+                  collected.push(older.content);
+                }
+              }
+            }
+          }
+        }
+
+        // Collected newest → oldest; the list wants oldest first.
+        collected.reverse();
+        let _ = tx.send(LoadedPage {
+          messages: collected,
+          reached_end,
+        });
+      });
+
+      let Ok(page) = rx.await else { return };
+
+      this
+        .update(cx, |this, cx| {
+          let known = this.known_ids();
+          let fresh: Vec<_> = page.messages.into_iter().filter(|m| !known.contains(&m.get_list_identifier())).collect();
+
+          this.mark_dirty(DirtyState {
+            new_items: fresh.len(),
+            shift: 0,
+          });
+          // Live messages may already sit in `items`; history goes before them.
+          let mut items = fresh;
+          items.append(&mut this.items);
+          this.items = items;
+
+          this.top_reached = page.reached_end;
+          this.top_state = if page.reached_end { EdgeState::End } else { EdgeState::Idle };
+          this.bottom_reached = true;
+          this.scroll_to_bottom.set(true);
+          this.rebuild(cx);
+          cx.notify();
+        })
+        .unwrap_or_else(|_| log::debug!("channel closed before its history arrived"));
+    })
+    .detach();
+  }
+
+  /// Fetch up to [`OLDER_LOAD`] messages above the oldest confirmed one.
+  fn load_older(&mut self, cx: &mut Context<Self>) {
+    if self.top_state != EdgeState::Idle {
+      return;
+    }
+
+    // Optimistic messages have no server identity; never page relative to one.
+    let Some(anchor) = self.items.iter().find(|m| m.get_identifier().is_some()).map(|m| m.get_list_identifier()) else {
+      return;
+    };
+
+    self.top_state = EdgeState::Loading;
+    self.rebuild(cx);
+    cx.notify();
+
+    let list = self.list.clone();
+
+    cx.spawn(async move |this, cx| {
+      let (tx, rx) = catty::oneshot();
+
+      tokio::spawn(async move {
+        let guard = list.read().await;
+        let mut collected = Vec::new();
+        let mut reached_end = false;
+        let mut anchor = anchor;
+
+        while !reached_end && collected.len() < OLDER_LOAD {
+          match guard.get(AsyncListIndex::Before(anchor)).await {
+            None => reached_end = true,
+            Some(older) => {
+              reached_end = older.is_top;
+              anchor = older.content.get_list_identifier();
+              collected.push(older.content);
+            }
+          }
+        }
+
+        collected.reverse();
+        let _ = tx.send(LoadedPage {
+          messages: collected,
+          reached_end,
+        });
+      });
+
+      let Ok(page) = rx.await else { return };
+
+      this
+        .update(cx, |this, cx| {
+          let known = this.known_ids();
+          let fresh: Vec<_> = page.messages.into_iter().filter(|m| !known.contains(&m.get_list_identifier())).collect();
+
+          this.mark_dirty(DirtyState {
+            new_items: 0,
+            shift: fresh.len(),
+          });
+          let mut items = fresh;
+          items.append(&mut this.items);
+          this.items = items;
+
+          this.top_reached = page.reached_end;
+          this.top_state = if page.reached_end { EdgeState::End } else { EdgeState::Idle };
+          this.rebuild(cx);
+          cx.notify();
+        })
+        .unwrap_or_else(|_| log::debug!("channel closed before older history arrived"));
+    })
+    .detach();
+  }
+
+  /// Start whichever loads the visible edge sentinels asked for.
+  fn service_edges(&mut self, cx: &mut Context<Self>) {
+    let flags = *self.bounds_flags.read(cx);
+
+    if flags.before || flags.after {
+      self.bounds_flags.update(cx, |v, _| *v = BoundFlags::default());
+    }
+
+    if !self.started {
+      self.load_initial(cx);
+      return;
+    }
+
+    if flags.before && !self.top_reached {
+      self.load_older(cx);
+    }
+
+    // Newer-than-loaded paging (after jumping into deep history) would go
+    // here; live messages arrive through the channel events instead.
+  }
+
+  /// Regroup and rebuild the `ListState`, carrying the scroll position over.
+  fn rebuild(&mut self, cx: &mut Context<Self>) {
+    let dirty = self.dirty.take().unwrap_or_default();
+
+    let build = build_rows(
+      &self.items,
+      self.top_state,
+      self.top_reached,
+      self.bottom_state,
+      self.new_divider.as_ref(),
+      |m| m.get_timestamp().map(local_day),
+    );
+    let (shift, added_rows_bottom) = carried_rows(&build.rows_per_item, dirty);
 
     let len = build.rows.len();
     let total_items = if len == 0 { 1 } else { len + 2 };
     let new_list_state = ListState::new(total_items, ListAlignment::Bottom, self.overdraw);
 
     let pinned = self.pinned_to_bottom.clone();
-    new_list_state.set_scroll_handler(move |event, _, _| pinned.set(event.visible_range.end >= total_items));
+    new_list_state.set_scroll_handler(move |event, _, _| pinned.set(!event.is_scrolled));
 
     if let Some(old) = &self.list_state {
       let mut new_scroll_top = old.logical_scroll_top();
 
-      if new_scroll_top.item_ix == old.item_count() {
+      if new_scroll_top.item_ix >= old.item_count() {
         new_scroll_top.item_ix += added_rows_bottom;
 
         if added_rows_bottom > 0 {
@@ -377,99 +533,10 @@ impl<C: Channel + 'static> MessageListComponent<C> {
       new_list_state.scroll_to(new_scroll_top);
     }
 
+    let _ = build.top_chrome;
     self.rows = Rc::new(build.rows);
     self.unseen = build.unseen;
     self.list_state = Some(new_list_state);
-  }
-
-  /// Kick off a backend fetch for `index` and write the result into the placeholder tagged `token`.
-  fn fetch(cx: &mut Context<Cache<C::Message>>, list: Arc<RwLock<C>>, index: AsyncListIndex<<C::Message as AsyncListItem>::Identifier>, token: u64) {
-    cx.spawn(async move |cache, cx| {
-      let (tx, rx) = catty::oneshot();
-
-      tokio::spawn(async move {
-        let result = list.read().await.get(index).await;
-        if tx.send(result).is_err() {
-          log::error!("message list went away before fetch completed");
-        }
-      });
-
-      let Ok(result) = rx.await else { return };
-
-      cache
-        .update(cx, |cache, cx| {
-          if let Some(item) = cache.iter_mut().find(|e| matches!(e, Element::Unresolved(t) if *t == token)) {
-            *item = Element::Resolved(result.map(|v| v.content));
-          }
-          cx.notify();
-        })
-        .unwrap_or_else(|_| log::debug!("view dropped before this update applied"));
-    })
-    .detach();
-  }
-
-  /// Request more history in whichever direction the sentinel rows asked for.
-  fn update(&mut self, cx: &mut Context<Self>) {
-    let mut dirty = None;
-    let mut flags = *self.bounds_flags.read(cx);
-
-    if flags.after {
-      let list = self.list.clone();
-
-      self.cache.update(cx, |cache, cx| {
-        let index = match cache.last() {
-          None => AsyncListIndex::RelativeToBottom(0),
-          Some(Element::Resolved(Some(v))) => AsyncListIndex::After(v.get_list_identifier()),
-          Some(_) => {
-            flags.after = false;
-            return;
-          }
-        };
-
-        let token = next_token();
-        cache.push(Element::Unresolved(token));
-        Self::fetch(cx, list, index, token);
-
-        dirty = Some(ListStateDirtyState { new_items: 1, shift: 0 });
-      });
-    }
-
-    if flags.before {
-      let list = self.list.clone();
-
-      self.cache.update(cx, |cache, cx| {
-        let index = match cache.first() {
-          Some(Element::Resolved(Some(v))) => AsyncListIndex::Before(v.get_list_identifier()),
-          _ => {
-            flags.before = false;
-            return;
-          }
-        };
-
-        let token = next_token();
-        cache.insert(0, Element::Unresolved(token));
-        Self::fetch(cx, list, index, token);
-
-        let mut v = dirty.unwrap_or_default();
-        v.shift += 1;
-        dirty = Some(v);
-      });
-    }
-
-    if let Some(dirty) = dirty {
-      self.mark_dirty(dirty);
-      cx.notify();
-    }
-
-    self.bounds_flags.update(cx, |v, _| {
-      if flags.after {
-        v.after = false;
-      }
-
-      if flags.before {
-        v.before = false;
-      }
-    });
   }
 
   /// Floating "jump to present" pill, bottom-right, shown while scrolled up.
@@ -499,7 +566,7 @@ impl<C: Channel + 'static> MessageListComponent<C> {
 
 impl<C: Channel + 'static> Render for MessageListComponent<C> {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    self.update(cx);
+    self.service_edges(cx);
 
     let pinned = self.pinned_to_bottom.get();
     if pinned && !self.was_pinned {
@@ -513,7 +580,7 @@ impl<C: Channel + 'static> Render for MessageListComponent<C> {
 
     let state = self.list_state.clone().expect("list state is built above");
 
-    if pinned {
+    if self.scroll_to_bottom.take() || pinned {
       state.scroll_to(ListOffset {
         item_ix: state.item_count(),
         offset_in_item: px(0.),
@@ -548,7 +615,6 @@ impl<C: Channel + 'static> Render for MessageListComponent<C> {
           Row::DateSeparator(day) => date_separator(separator_label(*day, today)).into_any_element(),
           Row::NewDivider => new_divider().into_any_element(),
           Row::Group(group) => message_group(group.clone(), actions.clone(), window, cx).into_any_element(),
-          Row::End => div().into_any_element(),
         }
       }
     });
@@ -583,45 +649,31 @@ fn date_separator(label: String) -> impl IntoElement {
     .pl(px(ROW_PAD_LEFT))
     .pr(px(ROW_PAD_RIGHT))
     .flex()
-    .flex_row()
     .items_center()
     .gap(px(8.))
     .child(rule())
-    .child(
-      div()
-        .flex_shrink_0()
-        .text_size(tokens::TYPE_S)
-        .line_height(px(12.))
-        .font_weight(FontWeight::MEDIUM)
-        .text_color(tokens::TEXT_TERTIARY)
-        .whitespace_nowrap()
-        .child(label),
-    )
+    .child(div().text_size(tokens::TYPE_S).line_height(px(16.)).font_weight(FontWeight::MEDIUM).text_color(tokens::TEXT_TERTIARY).child(label))
     .child(rule())
 }
 
-/// Thin brand line with a "new" pill at its right end.
+/// Brand-coloured rule with a right-aligned "new" tag.
 fn new_divider() -> impl IntoElement {
   div()
     .w_full()
-    .h(px(NEW_DIVIDER_HEIGHT))
+    .h(px(16.))
     .pl(px(ROW_PAD_LEFT))
     .pr(px(ROW_PAD_RIGHT))
     .flex()
-    .flex_row()
     .items_center()
+    .gap(px(6.))
     .child(div().flex_1().h(px(1.)).bg(tokens::BRAND))
     .child(
       div()
-        .flex_shrink_0()
-        .h(px(12.))
         .px(px(4.))
-        .flex()
-        .items_center()
-        .rounded(tokens::RADIUS_050)
+        .rounded(px(2.))
         .bg(tokens::BRAND)
-        .text_size(tokens::TYPE_XS)
-        .line_height(px(12.))
+        .text_size(px(10.))
+        .line_height(px(14.))
         .font_weight(FontWeight::BOLD)
         .text_color(white())
         .child("new"),
@@ -630,217 +682,11 @@ fn new_divider() -> impl IntoElement {
 
 #[cfg(test)]
 mod tests {
-  use chrono::TimeZone;
-  use gpui::App;
-  use scope_chat::message::IconRenderConfig;
-  use scope_rich::RichContentView;
-
   use super::*;
-
-  #[derive(Clone, PartialEq, Eq)]
-  struct Author(u64);
-
-  impl MessageAuthor for Author {
-    type Identifier = u64;
-    type DisplayName = SharedString;
-    type Icon = SharedString;
-
-    fn get_display_name(&self) -> SharedString {
-      format!("user {}", self.0).into()
-    }
-
-    fn get_icon(&self, _config: IconRenderConfig) -> SharedString {
-      SharedString::default()
-    }
-
-    fn get_identifier(&self) -> u64 {
-      self.0
-    }
-  }
-
-  #[derive(Clone)]
-  struct Msg {
-    id: u64,
-    author: u64,
-    at: DateTime<Utc>,
-  }
-
-  impl AsyncListItem for Msg {
-    type Identifier = u64;
-
-    fn get_list_identifier(&self) -> u64 {
-      self.id
-    }
-  }
-
-  impl Message for Msg {
-    type Identifier = u64;
-    type Author = Author;
-
-    fn get_author(&self) -> Author {
-      Author(self.author)
-    }
-
-    fn is_own(&self) -> bool {
-      false
-    }
-
-    fn get_content(&self, _window: &mut Window, _cx: &mut App) -> Entity<RichContentView> {
-      unreachable!("rows are not rendered in unit tests")
-    }
-
-    fn get_identifier(&self) -> Option<u64> {
-      Some(self.id)
-    }
-
-    fn get_nonce(&self) -> impl PartialEq {
-      self.id
-    }
-
-    fn should_group(&self, previous: &Self) -> bool {
-      (self.at - previous.at).num_minutes().abs() <= 5
-    }
-
-    fn get_timestamp(&self) -> Option<DateTime<Utc>> {
-      Some(self.at)
-    }
-  }
-
-  /// A message by `author` at `day` of August 2026, `minute` minutes past noon UTC.
-  fn msg(id: u64, author: u64, day: u32, minute: u32) -> Element<Option<Msg>> {
-    let at = Utc.with_ymd_and_hms(2026, 8, day, 12, minute, 0).unwrap();
-    Element::Resolved(Some(Msg { id, author, at }))
-  }
-
-  fn utc_day(message: &Msg) -> Option<NaiveDate> {
-    Some(message.at.date_naive())
-  }
-
-  fn describe(rows: &[Row<Msg>]) -> Vec<String> {
-    rows
-      .iter()
-      .map(|row| match row {
-        Row::Start => "start".to_string(),
-        Row::Loading => "loading".to_string(),
-        Row::DateSeparator(day) => format!("sep {day}"),
-        Row::NewDivider => "new".to_string(),
-        Row::Group(group) => format!(
-          "group[{}]",
-          group.messages().iter().map(|m| m.id.to_string()).collect::<Vec<_>>().join(",")
-        ),
-        Row::End => "end".to_string(),
-      })
-      .collect()
-  }
-
-  #[test]
-  fn separator_between_groups_on_different_days() {
-    let cache = vec![
-      Element::Resolved(None),
-      msg(1, 7, 23, 0),
-      msg(2, 7, 23, 1),
-      msg(3, 7, 24, 0),
-      msg(4, 8, 24, 2),
-      Element::Resolved(None),
-    ];
-    let build = build_rows(&cache, None, utc_day);
-
-    assert_eq!(
-      describe(&build.rows),
-      ["start", "group[1,2]", "sep 2026-08-24", "group[3]", "group[4]", "end"]
-    );
-    assert_eq!(build.rows_per_item, [1, 1, 0, 2, 1, 1]);
-    assert_eq!(build.unseen, 0);
-  }
-
-  #[test]
-  fn same_day_different_authors_get_no_separator() {
-    let cache = vec![msg(1, 7, 24, 0), msg(2, 8, 24, 1)];
-    let build = build_rows(&cache, None, utc_day);
-
-    assert_eq!(describe(&build.rows), ["group[1]", "group[2]"]);
-  }
-
-  #[test]
-  fn no_separator_across_a_loading_slot() {
-    let cache = vec![msg(1, 7, 23, 0), Element::Unresolved(9), msg(2, 7, 24, 0)];
-    let build = build_rows(&cache, None, utc_day);
-
-    assert_eq!(describe(&build.rows), ["group[1]", "loading", "group[2]"]);
-  }
-
-  #[test]
-  fn lone_end_marker_is_the_start_of_history() {
-    let build = build_rows(&vec![Element::Resolved(None)], None, utc_day);
-    assert_eq!(describe(&build.rows), ["start"]);
-
-    let build = build_rows(&vec![msg(1, 7, 24, 0), Element::Resolved(None)], None, utc_day);
-    assert_eq!(describe(&build.rows), ["group[1]", "end"]);
-  }
-
-  #[test]
-  fn new_divider_breaks_the_group_and_counts_unseen() {
-    let cache = vec![msg(1, 7, 24, 0), msg(2, 7, 24, 1), msg(3, 7, 24, 2), Element::Resolved(None)];
-    let build = build_rows(&cache, Some(&2), utc_day);
-
-    assert_eq!(describe(&build.rows), ["group[1]", "new", "group[2,3]", "end"]);
-    assert_eq!(build.unseen, 2);
-  }
-
-  #[test]
-  fn separator_comes_before_the_new_divider() {
-    let cache = vec![msg(1, 7, 23, 0), msg(2, 7, 24, 0)];
-    let build = build_rows(&cache, Some(&2), utc_day);
-
-    assert_eq!(describe(&build.rows), ["group[1]", "sep 2026-08-24", "new", "group[2]"]);
-    assert_eq!(build.rows_per_item, [1, 3]);
-  }
-
-  #[test]
-  fn missing_divider_message_draws_nothing() {
-    let cache = vec![msg(1, 7, 24, 0), msg(2, 7, 24, 1)];
-    let build = build_rows(&cache, Some(&99), utc_day);
-
-    assert_eq!(describe(&build.rows), ["group[1,2]"]);
-    assert_eq!(build.unseen, 0);
-  }
-
-  #[test]
-  fn removing_the_message_at_a_day_boundary_drops_the_separator() {
-    let mut cache = vec![msg(1, 7, 23, 0), msg(2, 7, 24, 0), Element::Resolved(None)];
-    assert_eq!(
-      describe(&build_rows(&cache, None, utc_day).rows),
-      ["group[1]", "sep 2026-08-24", "group[2]", "end"]
-    );
-
-    cache.retain(|e| !matches!(e, Element::Resolved(Some(m)) if m.id == 2));
-    assert_eq!(describe(&build_rows(&cache, None, utc_day).rows), ["group[1]", "end"]);
-  }
-
-  #[test]
-  fn carried_rows_count_rows_not_cache_items() {
-    // [loading, msg(+sep), msg, end]: one slot inserted at the top.
-    let rows_per_item = [1, 2, 1, 1];
-    assert_eq!(carried_rows(&rows_per_item, true, ListStateDirtyState { shift: 1, new_items: 0 }), (1, 0));
-
-    // [msg, msg, msg(+sep +new), end]: one message appended under a re-pushed end marker.
-    let rows_per_item = [1, 1, 3, 1];
-    assert_eq!(carried_rows(&rows_per_item, true, ListStateDirtyState { shift: 0, new_items: 1 }), (0, 3));
-
-    // [msg, msg, loading]: a bottom fetch in flight, no end marker.
-    let rows_per_item = [1, 1, 1];
-    assert_eq!(
-      carried_rows(&rows_per_item, false, ListStateDirtyState { shift: 0, new_items: 1 }),
-      (0, 1)
-    );
-
-    assert_eq!(carried_rows(&[], true, ListStateDirtyState { shift: 1, new_items: 1 }), (0, 0));
-  }
 
   #[test]
   fn separator_labels() {
     let today = NaiveDate::from_ymd_opt(2026, 8, 24).unwrap();
-
     assert_eq!(separator_label(today, today), "today");
     assert_eq!(separator_label(today.pred_opt().unwrap(), today), "yesterday");
     assert_eq!(separator_label(NaiveDate::from_ymd_opt(2026, 8, 1).unwrap(), today), "august 1, 2026");
@@ -853,7 +699,23 @@ mod tests {
   #[test]
   fn jump_labels() {
     assert_eq!(jump_label(0), "jump to present");
-    assert_eq!(jump_label(1), "1 new message · Jump to present");
-    assert_eq!(jump_label(4), "4 new messages · Jump to present");
+    assert_eq!(jump_label(1), "1 new message · jump to present");
+    assert_eq!(jump_label(7), "7 new messages · jump to present");
+  }
+
+  #[test]
+  fn carried_rows_counts_edges() {
+    // items contributed 1, 2 (separator + group), 1, 1 rows
+    let per_item = [1, 2, 1, 1];
+    let (top, bottom) = carried_rows(&per_item, DirtyState { shift: 2, new_items: 1 });
+    assert_eq!(top, 3);
+    assert_eq!(bottom, 1);
+
+    let (top, bottom) = carried_rows(&per_item, DirtyState::default());
+    assert_eq!((top, bottom), (0, 0));
+
+    // shift larger than the list clamps
+    let (top, _) = carried_rows(&per_item, DirtyState { shift: 10, new_items: 0 });
+    assert_eq!(top, 5);
   }
 }
