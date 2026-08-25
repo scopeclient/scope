@@ -362,7 +362,7 @@ impl<C: Channel + 'static> MessageListComponent<C> {
       tokio::spawn(async move {
         let guard = list.read().await;
         let mut collected = Vec::new();
-        let mut reached_end = false;
+        let mut reached_end;
 
         match guard.get(AsyncListIndex::RelativeToBottom(0)).await {
           None => reached_end = true,
@@ -511,7 +511,7 @@ impl<C: Channel + 'static> MessageListComponent<C> {
   }
 
   /// Regroup and rebuild the `ListState`, carrying the scroll position over.
-  fn rebuild(&mut self, cx: &mut Context<Self>) {
+  fn rebuild(&mut self, _cx: &mut Context<Self>) {
     let dirty = self.dirty.take().unwrap_or_default();
 
     let build = build_rows(
