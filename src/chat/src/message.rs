@@ -1,23 +1,24 @@
 use std::fmt::Debug;
 
 use chrono::{DateTime, Utc};
-use gpui::{IntoElement, Render, Entity, App};
+use gpui::{App, Entity, IntoElement, Window};
+use scope_rich::RichContentView;
 
 use crate::async_list::AsyncListItem;
-use crate::reaction::ReactionList;
 
 pub trait Message: Clone + AsyncListItem + Send {
   type Identifier: Sized + Copy + Clone + Debug + Eq + PartialEq;
   type Author: MessageAuthor<Identifier = <Self as Message>::Identifier>;
-  type Content: Render;
 
   fn get_author(&self) -> Self::Author;
-  fn get_content(&self, cx: &mut App) -> Entity<Self::Content>;
+  /// Sent by the signed-in user (enables edit/delete).
+  fn is_own(&self) -> bool;
+  /// The rendered body (text, attachments, embeds, …), cached per message.
+  fn get_content(&self, window: &mut Window, cx: &mut App) -> Entity<RichContentView>;
   fn get_identifier(&self) -> Option<<Self as Message>::Identifier>;
   fn get_nonce(&self) -> impl PartialEq;
   fn should_group(&self, previous: &Self) -> bool;
   fn get_timestamp(&self) -> Option<DateTime<Utc>>;
-  fn get_reactions(&mut self) -> Option<&mut impl ReactionList>;
 }
 
 #[derive(Debug, Clone, Copy)]

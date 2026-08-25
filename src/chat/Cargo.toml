@@ -1,11 +1,11 @@
 [package]
 name = "scope-chat"
-version = "0.1.0"
-edition = "2021"
-license = "AGPL-3.0-or-later"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
 
 [dependencies]
-tokio = "1.41.1"
 chrono.workspace = true
 gpui.workspace = true
-atomic_refcell.workspace = true
+scope-rich.workspace = true
+tokio.workspace = true

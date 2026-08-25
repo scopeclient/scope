@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use gpui::{div, img, App, IntoElement, ParentElement, RenderOnce, SharedString, Styled, Window};
+use gpui::{App, IntoElement, ObjectFit, ParentElement, RenderOnce, SharedString, Styled, StyledImage, Window, div, img};
 use scope_chat::message::{IconRenderConfig, MessageAuthor};
 use url::Url;
 
@@ -23,10 +23,10 @@ pub struct DiscordMessageAuthor {
 impl PartialEq for DiscordMessageAuthor {
   fn eq(&self, other: &Self) -> bool {
     match (&self.data, &other.data) {
-      (DiscordMessageAuthorData::Member(ref left), DiscordMessageAuthorData::Member(ref right)) => {
+      (DiscordMessageAuthorData::Member(left), DiscordMessageAuthorData::Member(right)) => {
         left.guild_id == right.guild_id && left.user.id == right.user.id
       }
-      (DiscordMessageAuthorData::User(ref left), DiscordMessageAuthorData::User(ref right)) => left.id == right.id,
+      (DiscordMessageAuthorData::User(left), DiscordMessageAuthorData::User(right)) => left.id == right.id,
       _ => false,
     }
   }
@@ -68,20 +68,24 @@ impl MessageAuthor for DiscordMessageAuthor {
   }
 }
 
+/// The author's name. Inherits font size, weight and colour from the row that
+/// places it so the chat UI owns the typography.
 #[derive(Clone, IntoElement, Debug)]
 pub struct DisplayName(pub SharedString);
 
 impl RenderOnce for DisplayName {
-  fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
-    div().text_sm().child(self.0)
+  fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
+    div().truncate().child(self.0)
   }
 }
 
+/// The author's avatar, filling whatever frame it is placed in. The CDN
+/// `size` query parameter is set from the render config.
 #[derive(Clone, IntoElement, Debug)]
 pub struct DisplayIcon(pub String, pub IconRenderConfig);
 
 impl RenderOnce for DisplayIcon {
-  fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
+  fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
     let mut url = Url::parse(&self.0).unwrap();
     let mut query_params = querystring::querify(url.query().unwrap_or(""));
 
@@ -101,6 +105,6 @@ impl RenderOnce for DisplayIcon {
 
     url.set_query(Some(&querystring::stringify(query_params)));
 
-    img(url.to_string()).w_full().h_full().rounded_full()
+    img(url.to_string()).size_full().rounded_full().object_fit(ObjectFit::Cover)
   }
 }

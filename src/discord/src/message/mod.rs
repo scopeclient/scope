@@ -1,34 +1,29 @@
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
-use crate::message::reaction_list::DiscordReactionList;
 use author::DiscordMessageAuthor;
 use chrono::{DateTime, Utc};
-use content::DiscordMessageContent;
-use gpui::{App, AppContext, Entity};
-use scope_chat::reaction::ReactionList;
+use gpui::{App, Entity, Window};
 use scope_chat::{async_list::AsyncListItem, message::Message};
-use serenity::all::{ModelError, Nonce};
+use scope_rich::{ContentCell, MessageKind, ReplyRef, RichContentView, RichMessage};
+use serenity::all::Nonce;
 
 use crate::{client::DiscordClient, snowflake::Snowflake};
 
 pub mod author;
-pub mod content;
-pub mod reaction;
-pub mod reaction_list;
+pub mod rich;
 
 #[derive(Clone)]
 pub enum DiscordMessageData {
+  /// Sent by us and not echoed back by the gateway yet.
   Pending {
     nonce: String,
     content: String,
     sent_time: DateTime<Utc>,
     list_item_id: Snowflake,
+    /// The message this one replies to, so the reply header shows straight away.
+    reply_to: Option<ReplyRef>,
   },
-  Received(
-    Arc<serenity::model::channel::Message>,
-    Option<Arc<serenity::model::guild::Member>>,
-    DiscordReactionList,
-  ),
+  Received(Arc<serenity::model::channel::Message>, Option<Arc<serenity::model::guild::Member>>),
 }
 
 #[derive(Clone)]
@@ -36,26 +31,24 @@ pub struct DiscordMessage {
   pub client: Arc<DiscordClient>,
   pub channel: Arc<serenity::model::channel::Channel>,
   pub data: DiscordMessageData,
-  pub content: Arc<OnceLock<Entity<DiscordMessageContent>>>,
+  pub content: ContentCell,
 }
 
 impl DiscordMessage {
-  pub async fn load_serenity(client: Arc<DiscordClient>, msg: Arc<serenity::model::channel::Message>) -> Self {
-    let channel = Arc::new(msg.channel(client.discord()).await.unwrap());
-    let member = match msg.member(client.discord()).await {
-      Ok(v) => Ok(Some(Arc::new(v))),
-      Err(serenity::Error::Model(ModelError::ItemMissing)) => Ok(None),
-      Err(e) => Err(e),
-    }
-    .unwrap();
-
-    let reactions = DiscordReactionList::new(msg.reactions.clone(), channel.id(), msg.id, client.clone());
+  /// A message fetched over REST for `channel`.
+  pub async fn load_serenity(
+    client: Arc<DiscordClient>,
+    channel: Arc<serenity::model::channel::Channel>,
+    msg: Arc<serenity::model::channel::Message>,
+  ) -> Self {
+    let member = client.message_member(&msg).await;
 
     Self {
       client,
       channel,
-      data: DiscordMessageData::Received(msg, member, reactions),
-      content: Arc::new(OnceLock::new()),
+      data: DiscordMessageData::Received(msg, member),
+
+      content: ContentCell::new(),
     }
   }
 
@@ -65,12 +58,59 @@ impl DiscordMessage {
     channel: Arc<serenity::model::channel::Channel>,
     member: Option<Arc<serenity::model::guild::Member>>,
   ) -> Self {
-    let reactions = DiscordReactionList::new(msg.reactions.clone(), channel.id(), msg.id, client.clone());
     Self {
       client,
       channel,
-      data: DiscordMessageData::Received(msg, member, reactions),
-      content: Arc::new(OnceLock::new()),
+      data: DiscordMessageData::Received(msg, member),
+
+      content: ContentCell::new(),
+    }
+  }
+
+  /// The optimistic copy of a message we just sent to `channel`.
+  pub fn pending(
+    client: Arc<DiscordClient>,
+    channel: Arc<serenity::model::channel::Channel>,
+    content: String,
+    nonce: String,
+    reply_to: Option<ReplyRef>,
+  ) -> Self {
+    Self {
+      client,
+      channel,
+      data: DiscordMessageData::Pending {
+        nonce,
+        content,
+        sent_time: Utc::now(),
+        list_item_id: Snowflake::random(),
+        reply_to,
+      },
+      content: ContentCell::new(),
+    }
+  }
+
+  /// The serenity message behind a received message; `None` while pending.
+  pub(crate) fn serenity(&self) -> Option<&Arc<serenity::model::channel::Message>> {
+    match &self.data {
+      DiscordMessageData::Received(message, _) => Some(message),
+      DiscordMessageData::Pending { .. } => None,
+    }
+  }
+
+  /// This message with `msg` as its new data (an edit, reactions, resolved embeds, …).
+  ///
+  /// The author stays as loaded; the content is rendered afresh.
+  pub(crate) fn with_serenity(&self, msg: Arc<serenity::model::channel::Message>) -> Self {
+    let member = match &self.data {
+      DiscordMessageData::Received(_, member) => member.clone(),
+      DiscordMessageData::Pending { .. } => None,
+    };
+
+    Self {
+      client: self.client.clone(),
+      channel: self.channel.clone(),
+      data: DiscordMessageData::Received(msg, member),
+      content: ContentCell::new(),
     }
   }
 }
@@ -80,7 +120,7 @@ enum NonceState<'r> {
   Discord(&'r Option<Nonce>),
 }
 
-impl PartialEq for NonceState<'_> {
+impl<'r> PartialEq for NonceState<'r> {
   fn eq(&self, other: &Self) -> bool {
     match (self, other) {
       // comparing anything with `None` means they are not equal
@@ -106,7 +146,13 @@ impl PartialEq for NonceState<'_> {
 impl Message for DiscordMessage {
   type Identifier = Snowflake;
   type Author = DiscordMessageAuthor;
-  type Content = DiscordMessageContent;
+
+  fn is_own(&self) -> bool {
+    match &self.data {
+      DiscordMessageData::Pending { .. } => true,
+      DiscordMessageData::Received(message, _) => message.author.id == self.client.own_user().id,
+    }
+  }
 
   fn get_author(&self) -> DiscordMessageAuthor {
     match &self.data {
@@ -122,7 +168,7 @@ impl Message for DiscordMessage {
         },
       },
 
-      DiscordMessageData::Received(message, member, ..) => DiscordMessageAuthor {
+      DiscordMessageData::Received(message, member) => DiscordMessageAuthor {
         client: self.client.clone(),
         data: match member {
           None => author::DiscordMessageAuthorData::NonMemberAuthor(message.clone()),
@@ -133,23 +179,27 @@ impl Message for DiscordMessage {
   }
 
   // TODO: want reviewer discussion. I'm really stretching the abilities of gpui here and im not sure if this is the right way to do this.
-  // Additional Context to this discussion: the OnceLock in context CANNOT be cloned because it messes with the internal gpui entityids
-  // and recreates the entity on every interaction making it impossible to interact with the message content in any way. Right now, I'm
-  // using an arc for this, but this feels like a band-aid solution. I do agree that this should be refactored out at some point.
-  fn get_content(&self, cx: &mut App) -> Entity<Self::Content> {
-    self
-      .content
-      .get_or_init(|| {
-        cx.new(|_| match &self.data {
-          DiscordMessageData::Pending { content, .. } => DiscordMessageContent::pending(content.clone()),
-          DiscordMessageData::Received(message, _, reactions) => DiscordMessageContent::received(message, reactions),
-        })
-      }).clone()
+  fn get_content(&self, _window: &mut Window, cx: &mut App) -> Entity<RichContentView> {
+    self.content.get_or_create(cx, || {
+      Arc::new(match &self.data {
+        DiscordMessageData::Pending { content, reply_to, .. } => {
+          let mut rich = RichMessage::pending(content.clone());
+
+          if let Some(reply) = reply_to {
+            rich.kind = MessageKind::Reply;
+            rich.reply = Some(reply.clone());
+          }
+
+          rich
+        }
+        DiscordMessageData::Received(message, member) => rich::from_serenity(message, member.as_deref(), &self.channel, &self.client),
+      })
+    })
   }
 
   fn get_identifier(&self) -> Option<Snowflake> {
     match &self.data {
-      DiscordMessageData::Received(message, ..) => Some(message.id.into()),
+      DiscordMessageData::Received(message, _) => Some(message.id.into()),
       DiscordMessageData::Pending { .. } => None,
     }
   }
@@ -157,7 +207,7 @@ impl Message for DiscordMessage {
   fn get_nonce(&self) -> impl PartialEq {
     match &self.data {
       DiscordMessageData::Pending { nonce, .. } => NonceState::Fixed(nonce),
-      DiscordMessageData::Received(message, ..) => NonceState::Discord(&message.nonce),
+      DiscordMessageData::Received(message, _) => NonceState::Discord(&message.nonce),
     }
   }
 
@@ -173,14 +223,7 @@ impl Message for DiscordMessage {
   fn get_timestamp(&self) -> Option<DateTime<Utc>> {
     match &self.data {
       DiscordMessageData::Pending { sent_time, .. } => Some(*sent_time),
-      DiscordMessageData::Received(message, ..) => DateTime::from_timestamp_millis(message.timestamp.timestamp_millis()),
-    }
-  }
-
-  fn get_reactions(&mut self) -> Option<&mut impl ReactionList> {
-    match &mut self.data {
-      DiscordMessageData::Pending { .. } => None,
-      DiscordMessageData::Received(_, _, reactions) => Some(reactions),
+      DiscordMessageData::Received(message, _) => DateTime::from_timestamp_millis(message.timestamp.timestamp_millis()),
     }
   }
 }
@@ -191,7 +234,7 @@ impl AsyncListItem for DiscordMessage {
   fn get_list_identifier(&self) -> Self::Identifier {
     match &self.data {
       DiscordMessageData::Pending { list_item_id, .. } => *list_item_id,
-      DiscordMessageData::Received(message, ..) => message.id.into(),
+      DiscordMessageData::Received(message, _) => message.id.into(),
     }
   }
 }

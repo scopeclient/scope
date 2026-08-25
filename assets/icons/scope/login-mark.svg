@@ -1,0 +1,7 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="sr-location-startingselected">
+<circle cx="8" cy="8" r="5.25" stroke="#FC3B8C" stroke-width="1.5"/>
+<circle cx="8" cy="8" r="1.9" fill="#FC3B8C"/>
+<path d="M8 0V3.5M8 12.5V16M0 8H3.5M12.5 8H16" stroke="#FC3B8C" stroke-width="1.5"/>
+</g>
+</svg>

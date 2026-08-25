@@ -1,13 +1,33 @@
 [workspace]
-resolver = "2"
-members = ["src/ui", "src/cache", "src/chat", "src/discord"]
+resolver = "3"
+members = ["src/ui", "src/cache", "src/chat", "src/demo", "src/discord", "src/media", "src/rich", "src/theme"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "AGPL-3.0-or-later"
 
 [workspace.dependencies]
-chrono = "0.4.38"
-gpui = { git = "https://github.com/scopeclient/zed.git", branch = "feature/export-platform-window", default-features = false, features = [
-  "http_client",
-  "font-kit",
-] }
-components = { package = "ui", git = "https://github.com/scopeclient/components", version = "0.1.0" }
-reqwest_client = { git = "https://github.com/scopeclient/zed.git", branch = "feature/export-platform-window", version = "0.1.0" }
-atomic_refcell = "0.1.13"
+anyhow = "1"
+chrono = "0.4"
+gpui = "0.2.2"
+gpui-component = "0.5.1"
+gpui-component-assets = "0.5.1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+reqwest_client = { git = "https://github.com/longbridge/gpui-component", tag = "v0.5.1" }
+log = "0.4"
+rand = "0.9"
+rodio = { version = "0.22", default-features = false, features = ["playback", "symphonia-all", "wav", "flac", "vorbis", "mp3"] }
+scope-chat = { path = "src/chat" }
+scope-media = { path = "src/media" }
+scope-rich = { path = "src/rich" }
+scope-theme = { path = "src/theme" }
+tokio = { version = "1", features = ["full"] }
+
+# Local vendored fork of serenity with a fix: a bot's READY payload omits the
+# user-only fields `user_settings_proto`, `connected_accounts` and
+# `friend_suggestion_count`, which the fork's `Ready` struct required, so bot
+# logins hung forever waiting for a READY that never deserialized. Marked those
+# `#[serde(default)]` in vendor/serenity. TODO: upstream to scopeclient/serenity.
+[patch."https://github.com/scopeclient/serenity"]
+serenity = { path = "vendor/serenity" }

@@ -25,7 +25,8 @@ The Discord client for power users.
 
 ### Prerequisites
 
-- [Rust & Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)
+- [Rust & Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) (stable; `rust-toolchain.toml` picks it up)
+- Linux only: Vulkan, `libxkbcommon`, X11/Wayland dev packages. `shell.nix` has the full list (`nix-shell`).
 
 ### Steps
 
@@ -35,19 +36,33 @@ The Discord client for power users.
 
 ## Development Setup
 
-### Prerequisites
-
-- [Rust & Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html)
-
-### Steps
-
 1. Clone the repository
 2. Run `cargo run`
-   - It's recommended to use `cargo watch -- cargo run` from [cargo-watch](https://github.com/watchexec/cargo-watch), but it's optional
+   - `cargo watch -- cargo run` from [cargo-watch](https://github.com/watchexec/cargo-watch) is handy, but optional
+   - `SCOPE_DEMO=1 cargo run` runs against `scope-backend-demo`: an offline backend with sample servers, history, sends, and a background task that posts messages, flips presence and bumps unread badges — useful for UI work
 
-## Environment Variables
+## Signing in
 
-The binary requires the following environment variables to be set in the current working directory or in a `.env` file:
+On first launch Scope shows a login screen where you paste a Discord token. For now use a **bot token**
+(create an application in the Developer Portal, add a bot, enable the Presence, Server Members and
+Message Content intents, invite it to a test server). User-account tokens work through the unofficial
+client path and are behind a toggle on the login screen.
 
-- `DISCORD_TOKEN` - Your Discord token
-- `DEMO_CHANNEL_ID` - The channel ID to listen for messages on
+To skip the screen, put the token in a `.env` file (or the environment):
+
+- `DISCORD_BOT_TOKEN` — a bot token, or
+- `DISCORD_TOKEN` + `DISCORD_TOKEN_KIND=bot|user`
+
+See `.env.example`.
+
+## Tech
+
+- UI: [gpui](https://crates.io/crates/gpui) + [gpui-component](https://crates.io/crates/gpui-component)
+- Backends plug into the `Backend` trait (`src/ui/src/backend.rs`); the chat traits live in `src/chat`
+- Discord: a fork of [serenity](https://github.com/scopeclient/serenity) with user-account support (`src/discord`)
+- Demo: `src/demo` — offline sample backend
+- Design tokens live in `src/ui/src/theme/tokens.rs`, exported from the Figma file
+
+## Credits
+
+- Emoji graphics: [Twemoji](https://github.com/jdecked/twemoji) (jdecked fork, v17.0.3), licensed [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/).

@@ -1,40 +1,36 @@
 [package]
 name = "scope"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
 authors = [
   "Rose Kodsi-Hall <rose@hall.ly>",
   # Add yourself here if you contribute!
 ]
 description = "discord client for power users"
-readme = "README.md"
+readme = "../../README.md"
 homepage = "https://www.scopeclient.com/"
 repository = "https://github.com/scopeclient/scope"
 keywords = ["discord", "scope", "reticle"]
-license = "AGPL-3.0-or-later"
 
 [dependencies]
-gpui.workspace = true
-reqwest_client.workspace = true
-scope-chat = { version = "0.1.0", path = "../chat" }
-scope-util = { version = "0.1.0", path = "../util" }
-scope-backend-discord = { version = "0.1.0", path = "../discord" }
-scope-backend-cache = { version = "0.1.0", path = "../cache" }
-dotenv = "0.15.0"
-env_logger = "0.11.5"
-tokio = { version = "1.41.1", features = ["full"] }
-components.workspace = true
-log = "0.4.22"
-random-string = "1.1.0"
-rust-embed = "8.5.0"
+anyhow.workspace = true
+catty = "0.1"
 chrono.workspace = true
-catty = "0.1.5"
-directories = "5.0.1"
-clap = { version = "4.5.21", features = ["derive"] }
-
-twemoji-assets = { version = "1.3.0", optional = true }
-
-[features]
-default = ["gpui/x11", "twemoji"]
-wayland = ["gpui/wayland"]
-twemoji = ["scope-backend-discord/twemoji", "twemoji-assets"]
+dotenvy = "0.15"
+env_logger = "0.11"
+gpui.workspace = true
+gpui-component.workspace = true
+gpui-component-assets.workspace = true
+log.workspace = true
+random-string = "1.1"
+reqwest_client.workspace = true
+rust-embed = "8"
+scope-backend-cache = { path = "../cache" }
+scope-backend-demo = { path = "../demo" }
+scope-backend-discord = { path = "../discord" }
+scope-chat.workspace = true
+scope-media.workspace = true
+scope-rich.workspace = true
+scope-theme.workspace = true
+tokio.workspace = true
