@@ -34,3 +34,12 @@ serenity = { path = "vendor/serenity" }
 
 [workspace.metadata.dylint]
 libraries = [{ git = "https://github.com/scarletindustries/mordant" }]
+
+# Local copies of two gpui transitive deps (cocoa -> block, stacksafe ->
+# proc-macro-error2) whose published versions trip future-incompatibility
+# lints with no fixed release to update to. Each carries a minimal, commented
+# fix (rust#74840 / rust#127909). Drop these when gpui moves off cocoa/stacksafe
+# or upstream ships fixed versions.
+[patch.crates-io]
+block = { path = "vendor/block" }
+proc-macro-error2 = { path = "vendor/proc-macro-error2" }

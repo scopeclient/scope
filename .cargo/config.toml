@@ -1,7 +1,0 @@
-# Hide cargo's future-incompatibility note. It names `block v0.1.6` and
-# `proc-macro-error2 v2.0.1`, both transitive dependencies of gpui itself
-# (cocoa -> block, stacksafe -> proc-macro-error2) with no fixed release to
-# update to; nothing in this workspace can act on the warning. Re-check when
-# bumping gpui: `cargo report future-incompatibilities`.
-[future-incompat-report]
-frequency = "never"
