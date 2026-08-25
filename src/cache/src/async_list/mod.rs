@@ -80,4 +80,22 @@ impl<I: AsyncListItem> AsyncListCache<I> {
   pub fn find(&self, identifier: &I::Identifier) -> Option<I> {
     self.cache_map.get(identifier).cloned()
   }
+
+  /// Swap the cached item with the same identifier for `value`, keeping its position.
+  /// Returns the previous item; `None` (and no change) when the item is not cached.
+  pub fn replace(&mut self, value: I) -> Option<I> {
+    let identifier = value.get_list_identifier();
+
+    if !self.cache_map.contains_key(&identifier) {
+      return None;
+    }
+
+    self.cache_map.insert(identifier, value)
+  }
+
+  /// Forget the item with `identifier`; its neighbours become adjacent. Returns the removed item.
+  pub fn remove(&mut self, identifier: &I::Identifier) -> Option<I> {
+    self.cache_refs.remove(identifier);
+    self.cache_map.remove(identifier)
+  }
 }

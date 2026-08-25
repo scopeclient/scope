@@ -1,6 +1,5 @@
 /target
 .vscode
 .DS_Store
-.direnv
 .env
 .editorconfig

@@ -1,24 +1,25 @@
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
-use chrono::Utc;
-use scope_backend_cache::async_list::{refcacheslice::Exists, AsyncListCache};
+use scope_backend_cache::async_list::{AsyncListCache, refcacheslice::Exists};
 use scope_chat::{
   async_list::{AsyncList, AsyncListIndex, AsyncListItem, AsyncListResult},
-  channel::Channel,
+  channel::{Channel, ChannelEvent},
 };
-use serenity::all::{ChannelId, GetMessages, MessageId};
-use tokio::sync::{broadcast, Mutex, Semaphore};
+use scope_rich::{Emoji, ReplyRef};
+use serenity::all::{ChannelId, GetMessages, Message, MessageId};
+use tokio::sync::{Mutex, Semaphore, broadcast};
 
 use crate::{
   client::DiscordClient,
-  message::{DiscordMessage, DiscordMessageData},
+  dm,
+  message::{DiscordMessage, rich},
   snowflake::Snowflake,
 };
 
 pub struct DiscordChannel {
   channel: Arc<serenity::model::channel::Channel>,
 
-  receiver: broadcast::Receiver<DiscordMessage>,
+  receiver: broadcast::Receiver<ChannelEvent<DiscordMessage>>,
   client: Arc<DiscordClient>,
   cache: Arc<Mutex<AsyncListCache<DiscordMessage>>>,
   blocker: Semaphore,
@@ -30,7 +31,7 @@ impl DiscordChannel {
 
     client.add_channel_message_sender(channel_id, sender).await;
 
-    let channel = Arc::new(channel_id.to_channel(client.discord()).await.unwrap());
+    let channel = Arc::new(client.resolve_channel(channel_id).await.unwrap_or_else(|| dm::placeholder_channel(channel_id, &client.own_user())));
 
     DiscordChannel {
       channel,
@@ -40,37 +41,124 @@ impl DiscordChannel {
       blocker: Semaphore::new(1),
     }
   }
+
+  /// Send `content` (as a reply to `reply_to`, when given) in the background and return the
+  /// optimistic message; the gateway echo replaces it by nonce.
+  fn send(&self, content: String, nonce: String, reply_to: Option<Snowflake>) -> DiscordMessage {
+    let client = self.client.clone();
+    let channel_id = self.channel.id();
+    let sent_content = content.clone();
+    let sent_nonce = nonce.clone();
+    let reference = reply_to.map(|id| MessageId::new(id.0));
+
+    let reply = reply_to.map(|id| self.reply_ref(id));
+    let pending = DiscordMessage::pending(self.client.clone(), self.channel.clone(), content, nonce, reply);
+    let pending_id = pending.get_list_identifier();
+
+    tokio::spawn(async move {
+      // A rejected send (usually missing permissions) retracts the optimistic
+      // bubble instead of leaving it half-transparent forever.
+      if !client.send_message(channel_id, sent_content, sent_nonce, reference).await {
+        client.publish(channel_id, ChannelEvent::Deleted(pending_id)).await;
+      }
+    });
+
+    pending
+  }
+
+  /// Reply header for `message_id`: built from the cached message when it is paged in, else a
+  /// placeholder until Discord echoes the sent message back with the full reference.
+  fn reply_ref(&self, message_id: Snowflake) -> ReplyRef {
+    // Sending is synchronous; if a page load holds the cache the placeholder will do.
+    let cached = self.cache.try_lock().ok().and_then(|cache| cache.find(&message_id));
+
+    match cached.as_ref().and_then(DiscordMessage::serenity) {
+      Some(referenced) => {
+        let cache = &self.client.discord().cache;
+        rich::reply_ref_to(referenced, cache, rich::message_guild_id(referenced, &self.channel))
+      }
+      None => rich::unresolved_reply_ref(message_id.0),
+    }
+  }
+
+  /// The serenity message cached for `id`, when it is paged in.
+  pub(crate) async fn cached_message(&self, id: Snowflake) -> Option<Arc<Message>> {
+    self.cache.lock().await.find(&id).as_ref().and_then(DiscordMessage::serenity).cloned()
+  }
+
+  /// Take `msg` as the new state of a message; the cached copy (if paged in) is replaced.
+  /// Returns the message to publish as updated.
+  pub(crate) async fn message_updated(&self, msg: Arc<Message>) -> DiscordMessage {
+    let cached = self.cache.lock().await.find(&msg.id.into());
+
+    match cached {
+      Some(cached) => {
+        let updated = cached.with_serenity(msg);
+        self.cache.lock().await.replace(updated.clone());
+        updated
+      }
+      // Not paged in (it arrived live, or is outside the loaded window): nothing to keep in step.
+      None => DiscordMessage::load_serenity(self.client.clone(), self.channel.clone(), msg).await,
+    }
+  }
+
+  /// Forget a deleted message; its neighbours become adjacent.
+  pub(crate) async fn message_deleted(&self, id: Snowflake) {
+    self.cache.lock().await.remove(&id);
+  }
 }
 
 impl Channel for DiscordChannel {
   type Message = DiscordMessage;
   type Identifier = Snowflake;
 
-  fn get_receiver(&self) -> broadcast::Receiver<Self::Message> {
+  fn get_receiver(&self) -> broadcast::Receiver<ChannelEvent<Self::Message>> {
     self.receiver.resubscribe()
   }
 
   fn send_message(&self, content: String, nonce: String) -> DiscordMessage {
+    self.send(content, nonce, None)
+  }
+
+  fn send_reply(&self, content: String, nonce: String, reply_to: Self::Identifier) -> DiscordMessage {
+    self.send(content, nonce, Some(reply_to))
+  }
+
+  fn edit_message(&self, message: Self::Identifier, content: String) {
     let client = self.client.clone();
     let channel_id = self.channel.id();
-    let sent_content = content.clone();
-    let sent_nonce = nonce.clone();
 
-    tokio::spawn(async move {
-      client.send_message(channel_id, sent_content, sent_nonce).await;
-    });
+    tokio::spawn(async move { client.edit_message(channel_id, MessageId::new(message.0), content).await });
+  }
 
-    DiscordMessage {
-      channel: self.channel.clone(),
-      client: self.client.clone(),
-      data: DiscordMessageData::Pending {
-        nonce,
-        content,
-        sent_time: Utc::now(),
-        list_item_id: Snowflake::random(),
-      },
-      content: OnceLock::new(),
-    }
+  fn delete_message(&self, message: Self::Identifier) {
+    let client = self.client.clone();
+    let channel_id = self.channel.id();
+
+    tokio::spawn(async move { client.delete_message(channel_id, MessageId::new(message.0)).await });
+  }
+
+  fn add_reaction(&self, message: Self::Identifier, emoji: Emoji) {
+    let client = self.client.clone();
+    let channel_id = self.channel.id();
+    let reaction = rich::reaction_type(&emoji);
+
+    tokio::spawn(async move { client.add_reaction(channel_id, MessageId::new(message.0), reaction).await });
+  }
+
+  fn remove_reaction(&self, message: Self::Identifier, emoji: Emoji) {
+    let client = self.client.clone();
+    let channel_id = self.channel.id();
+    let reaction = rich::reaction_type(&emoji);
+
+    tokio::spawn(async move { client.remove_reaction(channel_id, MessageId::new(message.0), reaction).await });
+  }
+
+  fn typing(&self) {
+    let client = self.client.clone();
+    let channel_id = self.channel.id();
+
+    tokio::spawn(async move { client.broadcast_typing(channel_id).await });
   }
 
   fn get_identifier(&self) -> Self::Identifier {
@@ -89,16 +177,7 @@ impl AsyncList for DiscordChannel {
       return Some(v);
     };
 
-    match &*self.channel {
-      serenity::model::channel::Channel::Guild(guild_channel) => guild_channel.messages(self.client.discord(), GetMessages::new().limit(1)).await,
-      serenity::model::channel::Channel::Private(private_channel) => {
-        private_channel.messages(self.client.discord(), GetMessages::new().limit(1)).await
-      }
-      _ => unimplemented!(),
-    }
-    .unwrap()
-    .first()
-    .map(|v| Snowflake(v.id.get()))
+    self.client.get_messages(self.channel.id(), GetMessages::new().limit(1)).await.first().map(|v| Snowflake(v.id.get()))
   }
 
   async fn bounded_at_top_by(&self) -> Option<Snowflake> {
@@ -124,7 +203,7 @@ impl AsyncList for DiscordChannel {
 
     let result = self.client.get_specific_message(self.channel.id(), MessageId::new(identifier.0)).await?;
 
-    Some(DiscordMessage::load_serenity(self.client.clone(), Arc::new(result)).await)
+    Some(DiscordMessage::load_serenity(self.client.clone(), self.channel.clone(), Arc::new(result)).await)
   }
 
   async fn get(&self, index: AsyncListIndex<Snowflake>) -> Option<AsyncListResult<Self::Content>> {
@@ -160,13 +239,13 @@ impl AsyncList for DiscordChannel {
         let v = iter.next();
 
         if let Some(v) = v {
-          let msg = DiscordMessage::load_serenity(self.client.clone(), Arc::new(v)).await;
+          let msg = DiscordMessage::load_serenity(self.client.clone(), self.channel.clone(), Arc::new(v)).await;
           let mut id = msg.get_list_identifier();
           lock.append_bottom(msg.clone());
           result = Some(msg);
 
           for message in iter {
-            let msg = DiscordMessage::load_serenity(self.client.clone(), Arc::new(message)).await;
+            let msg = DiscordMessage::load_serenity(self.client.clone(), self.channel.clone(), Arc::new(message)).await;
             let nid = msg.get_list_identifier();
 
             lock.insert(AsyncListIndex::Before(id), msg, false, is_end);
@@ -193,7 +272,7 @@ impl AsyncList for DiscordChannel {
         for (message, index) in v.into_iter().rev().zip(0..) {
           let id = Snowflake(message.id.get());
 
-          let value = DiscordMessage::load_serenity(self.client.clone(), Arc::new(message)).await;
+          let value = DiscordMessage::load_serenity(self.client.clone(), self.channel.clone(), Arc::new(message)).await;
 
           if index == 0 {
             result = Some(value.clone());
@@ -214,7 +293,7 @@ impl AsyncList for DiscordChannel {
           .await;
         let mut current_index: Snowflake = message;
 
-        println!("Discord gave us {:?} messages (out of {:?})", v.len(), DISCORD_MESSAGE_BATCH_SIZE);
+        log::debug!("Discord gave us {} messages (out of {})", v.len(), DISCORD_MESSAGE_BATCH_SIZE);
 
         let is_end = v.len() == DISCORD_MESSAGE_BATCH_SIZE as usize;
         let len = v.len();
@@ -225,7 +304,7 @@ impl AsyncList for DiscordChannel {
         for (message, index) in v.into_iter().zip(0..) {
           let id = Snowflake(message.id.get());
 
-          let value = DiscordMessage::load_serenity(self.client.clone(), Arc::new(message)).await;
+          let value = DiscordMessage::load_serenity(self.client.clone(), self.channel.clone(), Arc::new(message)).await;
 
           if index == 0 {
             result = Some(value.clone());

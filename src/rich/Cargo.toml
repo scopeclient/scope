@@ -1,0 +1,13 @@
+[package]
+name = "scope-rich"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+chrono.workspace = true
+gpui.workspace = true
+gpui-component.workspace = true
+log.workspace = true
+scope-media.workspace = true
+scope-theme.workspace = true
