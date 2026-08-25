@@ -287,7 +287,7 @@ impl Renderer<'_> {
         Action::Link(url) => cx.open_url(url),
         Action::Spoiler(index) => {
           let index = *index;
-          view.update(cx, |this, cx| this.reveal_spoiler(index, cx)).ok();
+          view.update(cx, |this, cx| this.reveal_spoiler(index, cx)).unwrap_or_else(|_| log::debug!("view dropped before this update applied"));
         }
       });
     Some(text.into_any_element())
