@@ -16,4 +16,6 @@ pub enum ClientEvent {
   PresenceUpdated(Id),
   /// Someone started typing in a channel.
   Typing { channel: Id, user: String },
+  /// A non-fatal problem the user should see (failed load, rejected send, …).
+  Notice(String),
 }

@@ -259,6 +259,10 @@ impl AppState {
           Ok(ClientEvent::MembersUpdated(guild) | ClientEvent::PresenceUpdated(guild)) => {
             this.update(cx, |this, cx| this.refresh_guild_members(guild, cx))
           }
+          Ok(ClientEvent::Notice(text)) => this.update(cx, |this, cx| {
+            this.notice = Some(text);
+            cx.notify();
+          }),
           Ok(ClientEvent::Typing { channel, user }) => this.update(cx, |this, cx| {
             this.typing_for(channel, cx).update(cx, |typing, cx| typing.started(user, cx));
           }),
