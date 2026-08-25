@@ -139,7 +139,7 @@ impl<C: Channel + 'static> ChannelView<C> {
             }
 
             if is_new && let Some(typing) = &typing {
-              typing.update(cx, |typing, cx| typing.message_arrived(cx)).ok();
+              typing.update(cx, |typing, cx| typing.message_arrived(cx)).unwrap_or_else(|_| log::debug!("view dropped before this update applied"));
             }
           }
           Err(RecvError::Lagged(n)) => log::warn!("dropped {n} live messages from channel stream"),

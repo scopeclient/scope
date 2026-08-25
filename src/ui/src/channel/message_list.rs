@@ -403,7 +403,7 @@ impl<C: Channel + 'static> MessageListComponent<C> {
           }
           cx.notify();
         })
-        .ok();
+        .unwrap_or_else(|_| log::debug!("view dropped before this update applied"));
     })
     .detach();
   }
