@@ -34,7 +34,7 @@ jobs:
           # gpui needs xkbcommon/x11/vulkan; rodio (audio) needs ALSA.
           # The old GTK/WebKit set belonged to the pre-rewrite webview stack.
           sudo apt-get install -y libxkbcommon-dev libxkbcommon-x11-dev libx11-dev libvulkan-dev vulkan-validationlayers \
-          libasound2-dev
+          libasound2-dev libfreetype6-dev libfontconfig1-dev
 
       - name: Run `cargo check`
         run: cargo check
