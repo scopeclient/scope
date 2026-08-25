@@ -31,3 +31,6 @@ tokio = { version = "1", features = ["full"] }
 # `#[serde(default)]` in vendor/serenity. TODO: upstream to scopeclient/serenity.
 [patch."https://github.com/scopeclient/serenity"]
 serenity = { path = "vendor/serenity" }
+
+[workspace.metadata.dylint]
+libraries = [{ git = "https://github.com/scarletindustries/mordant" }]

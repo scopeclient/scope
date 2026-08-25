@@ -44,3 +44,34 @@ jobs:
 
       - name: Run `cargo test`
         run: cargo test --all-features
+
+  mordant:
+    name: Mordant Lints
+    # Non-blocking while we tune the lint config; flip continue-on-error off once clean.
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "mordant-cache"
+          cache-on-failure: true
+
+      - name: Install Linux Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libxkbcommon-x11-dev libx11-dev libvulkan-dev vulkan-validationlayers           libasound2-dev libfreetype6-dev libfontconfig1-dev
+
+      - name: Install dylint
+        run: cargo install --locked cargo-dylint dylint-link
+
+      - name: Run mordant
+        run: cargo dylint --all --workspace
