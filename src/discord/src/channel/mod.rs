@@ -51,13 +51,19 @@ impl DiscordChannel {
     let sent_nonce = nonce.clone();
     let reference = reply_to.map(|id| MessageId::new(id.0));
 
+    let reply = reply_to.map(|id| self.reply_ref(id));
+    let pending = DiscordMessage::pending(self.client.clone(), self.channel.clone(), content, nonce, reply);
+    let pending_id = pending.get_list_identifier();
+
     tokio::spawn(async move {
-      client.send_message(channel_id, sent_content, sent_nonce, reference).await;
+      // A rejected send (usually missing permissions) retracts the optimistic
+      // bubble instead of leaving it half-transparent forever.
+      if !client.send_message(channel_id, sent_content, sent_nonce, reference).await {
+        client.publish(channel_id, ChannelEvent::Deleted(pending_id)).await;
+      }
     });
 
-    let reply = reply_to.map(|id| self.reply_ref(id));
-
-    DiscordMessage::pending(self.client.clone(), self.channel.clone(), content, nonce, reply)
+    pending
   }
 
   /// Reply header for `message_id`: built from the cached message when it is paged in, else a

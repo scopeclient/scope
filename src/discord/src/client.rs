@@ -474,7 +474,8 @@ impl DiscordClient {
   }
 
   /// Send `content` to `channel_id`, as a reply to `reply_to` when given.
-  pub async fn send_message(&self, channel_id: ChannelId, content: String, nonce: String, reply_to: Option<MessageId>) {
+  /// `true` when Discord accepted the message.
+  pub async fn send_message(&self, channel_id: ChannelId, content: String, nonce: String, reply_to: Option<MessageId>) -> bool {
     let mut builder = CreateMessage::new().content(content).enforce_nonce(true).nonce(Nonce::String(nonce));
 
     if let Some(reply_to) = reply_to {
@@ -483,7 +484,19 @@ impl DiscordClient {
 
     // The http client alone: a permission check against the cache would refuse DMs it does not hold.
     if let Err(why) = channel_id.send_message(self.discord().http.clone(), builder).await {
-      log::warn!("Discord: could not send a message to {channel_id}: {why:?}");
+      log::error!("Discord: could not send a message to {channel_id} (missing permissions?): {why:?}");
+      return false;
+    }
+
+    true
+  }
+
+  /// Push a channel event to everyone listening on `channel_id`.
+  pub(crate) async fn publish(&self, channel_id: ChannelId, event: ChannelEvent<DiscordMessage>) {
+    let senders = self.channel_message_event_handlers.read().await.get(&channel_id).cloned();
+
+    for sender in senders.unwrap_or_default() {
+      let _ = sender.send(event.clone());
     }
   }
 

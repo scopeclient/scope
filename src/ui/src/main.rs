@@ -69,7 +69,8 @@ fn init(cx: &mut App) {
 
 #[tokio::main]
 async fn main() {
-  env_logger::init();
+  // Warnings matter (failed sends, dropped events); show them by default.
+  env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
 
   Application::new().with_assets(Assets).with_http_client(Arc::new(reqwest_client::ReqwestClient::new())).run(|cx| {
     init(cx);
