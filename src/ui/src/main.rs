@@ -1,17 +1,36 @@
 pub mod actions;
 pub mod app;
 pub mod app_state;
-mod assets;
 pub mod channel;
 pub mod menu;
+pub mod oobe;
 
-use app_state::AppState;
-use components::theme::{hsl, Theme, ThemeColor, ThemeMode};
-use gpui::*;
-use menu::app_menus;
 use std::sync::Arc;
 
-fn init(_: Arc<AppState>, cx: &mut App) -> Result<()> {
+use app_state::StateModel;
+use clap::Parser;
+use components::theme::{hsl, Theme, ThemeColor, ThemeMode};
+use gpui::*;
+use http_client::anyhow;
+use menu::app_menus;
+use oobe::login::OobeTokenLogin;
+
+#[derive(rust_embed::RustEmbed)]
+#[folder = "../../assets"]
+struct Assets;
+
+impl AssetSource for Assets {
+  fn load(&self, path: &str) -> Result<Option<std::borrow::Cow<'static, [u8]>>> {
+    Self::get(path).map(|f| Some(f.data)).ok_or_else(|| anyhow!("could not find asset at path \"{}\"", path))
+  }
+
+  fn list(&self, path: &str) -> Result<Vec<SharedString>> {
+    Ok(Self::iter().filter_map(|p| if p.starts_with(path) { Some(p.into()) } else { None }).collect())
+  }
+}
+
+fn init(cx: &mut AppContext) -> Result<()> {
+  StateModel::init(cx);
   components::init(cx);
 
   if cfg!(target_os = "macos") {
@@ -29,16 +48,20 @@ fn init(_: Arc<AppState>, cx: &mut App) -> Result<()> {
   Ok(())
 }
 
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+  /// Forces the out of box experience rather than using the token from ENV or appdata
+  #[arg(long)]
+  force_oobe: bool,
+}
+
 #[tokio::main]
 async fn main() {
   env_logger::init();
 
-  let app_state = Arc::new(AppState {});
-
-  Application::new().with_assets(assets::Assets).with_http_client(Arc::new(reqwest_client::ReqwestClient::new())).run(move |app: &mut App| {
-    AppState::set_global(Arc::downgrade(&app_state), app);
-
-    if let Err(e) = init(app_state.clone(), app) {
+  App::new().with_assets(Assets).with_http_client(Arc::new(reqwest_client::ReqwestClient::new())).run(move |cx: &mut AppContext| {
+    if let Err(e) = init(cx) {
       log::error!("{}", e);
       return;
     }
@@ -49,20 +72,32 @@ async fn main() {
     theme.title_bar = hsl(335.0, 97.0, 61.0);
     theme.background = hsl(225.0, 12.0, 10.0);
 
-    app.set_global(theme);
-    app.refresh_windows();
+    cx.set_global(theme);
+    cx.refresh();
 
-    let opts = WindowOptions {
-      window_decorations: Some(WindowDecorations::Client),
-      window_min_size: Some(size(Pixels(800.0), Pixels(600.0))),
-      titlebar: Some(TitlebarOptions {
-        appears_transparent: true,
-        title: Some(SharedString::new_static("scope")),
-        ..Default::default()
-      }),
-      ..Default::default()
-    };
+    let mut async_cx = cx.to_async();
 
-    app.open_window(opts, |window: &mut Window, cx| cx.new(|cx| app::App::new(window, cx))).unwrap();
+    let args = Args::parse();
+
+    cx.foreground_executor()
+      .spawn(async move {
+        if let Some(token) = OobeTokenLogin::get_token(&mut async_cx, args.force_oobe).await {
+          async_cx.update_global(|global: &mut StateModel, cx| global.provide_token(token, cx)).unwrap();
+
+          let opts = WindowOptions {
+            window_decorations: Some(WindowDecorations::Client),
+            window_min_size: Some(size(Pixels(800.0), Pixels(600.0))),
+            titlebar: Some(TitlebarOptions {
+              appears_transparent: true,
+              title: Some(SharedString::new_static("scope")),
+              ..Default::default()
+            }),
+            ..Default::default()
+          };
+
+          async_cx.open_window(opts, |cx| cx.new_view(crate::app::App::new)).unwrap();
+        }
+      })
+      .detach();
   });
 }
